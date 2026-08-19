@@ -1,0 +1,895 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5";
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+  public: {
+    Tables: {
+      clientes: {
+        Row: {
+          contrato_url: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          documento: string | null;
+          email: string | null;
+          endereco: string | null;
+          id: string;
+          logo_url: string | null;
+          nome_empresa: string;
+          plano: Database["public"]["Enums"]["plano_cliente"];
+          status: string;
+        };
+        Insert: {
+          contrato_url?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          documento?: string | null;
+          email?: string | null;
+          endereco?: string | null;
+          id?: string;
+          logo_url?: string | null;
+          nome_empresa: string;
+          plano?: Database["public"]["Enums"]["plano_cliente"];
+          status?: string;
+        };
+        Update: {
+          contrato_url?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          documento?: string | null;
+          email?: string | null;
+          endereco?: string | null;
+          id?: string;
+          logo_url?: string | null;
+          nome_empresa?: string;
+          plano?: Database["public"]["Enums"]["plano_cliente"];
+          status?: string;
+        };
+        Relationships: [];
+      };
+      comentarios_tarefa: {
+        Row: {
+          conteudo: string;
+          criado_em: string;
+          id: string;
+          tarefa_id: string;
+          usuario_id: string;
+        };
+        Insert: {
+          conteudo: string;
+          criado_em?: string;
+          id?: string;
+          tarefa_id: string;
+          usuario_id: string;
+        };
+        Update: {
+          conteudo?: string;
+          criado_em?: string;
+          id?: string;
+          tarefa_id?: string;
+          usuario_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comentarios_tarefa_tarefa_id_fkey";
+            columns: ["tarefa_id"];
+            isOneToOne: false;
+            referencedRelation: "tarefas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comentarios_tarefa_usuario_id_fkey";
+            columns: ["usuario_id"];
+            isOneToOne: false;
+            referencedRelation: "perfis_usuarios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      configuracoes_planos: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          id: string;
+          nome_plano: string;
+          servicos_inclusos: Json;
+          valor_mensal: number;
+        };
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome_plano: string;
+          servicos_inclusos?: Json;
+          valor_mensal?: number;
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome_plano?: string;
+          servicos_inclusos?: Json;
+          valor_mensal?: number;
+        };
+        Relationships: [];
+      };
+      configuracoes_sistema: {
+        Row: {
+          atualizado_em: string;
+          atualizado_por: string | null;
+          chave: string;
+          descricao: string | null;
+          valor: string | null;
+        };
+        Insert: {
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          chave: string;
+          descricao?: string | null;
+          valor?: string | null;
+        };
+        Update: {
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          chave?: string;
+          descricao?: string | null;
+          valor?: string | null;
+        };
+        Relationships: [];
+      };
+      convites: {
+        Row: {
+          aceito_em: string | null;
+          cargo: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id: string | null;
+          convidado_por: string | null;
+          criado_em: string;
+          email: string;
+          id: string;
+          status: string;
+        };
+        Insert: {
+          aceito_em?: string | null;
+          cargo?: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id?: string | null;
+          convidado_por?: string | null;
+          criado_em?: string;
+          email: string;
+          id?: string;
+          status?: string;
+        };
+        Update: {
+          aceito_em?: string | null;
+          cargo?: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id?: string | null;
+          convidado_por?: string | null;
+          criado_em?: string;
+          email?: string;
+          id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "convites_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      demandas_externas: {
+        Row: {
+          anexos: Json;
+          atualizado_em: string;
+          audio: Json | null;
+          criado_em: string;
+          descricao: string;
+          id: string;
+          justificativa_recusa: string | null;
+          prazo_sugerido: string | null;
+          responsavel_id: string | null;
+          setor: string | null;
+          solicitante_email: string | null;
+          solicitante_nome: string;
+          solicitante_user_id: string | null;
+          status: Database["public"]["Enums"]["status_demanda"];
+          tarefa_id: string | null;
+          video: Json | null;
+        };
+        Insert: {
+          anexos?: Json;
+          atualizado_em?: string;
+          audio?: Json | null;
+          criado_em?: string;
+          descricao: string;
+          id?: string;
+          justificativa_recusa?: string | null;
+          prazo_sugerido?: string | null;
+          responsavel_id?: string | null;
+          setor?: string | null;
+          solicitante_email?: string | null;
+          solicitante_nome: string;
+          solicitante_user_id?: string | null;
+          status?: Database["public"]["Enums"]["status_demanda"];
+          tarefa_id?: string | null;
+          video?: Json | null;
+        };
+        Update: {
+          anexos?: Json;
+          atualizado_em?: string;
+          audio?: Json | null;
+          criado_em?: string;
+          descricao?: string;
+          id?: string;
+          justificativa_recusa?: string | null;
+          prazo_sugerido?: string | null;
+          responsavel_id?: string | null;
+          setor?: string | null;
+          solicitante_email?: string | null;
+          solicitante_nome?: string;
+          solicitante_user_id?: string | null;
+          status?: Database["public"]["Enums"]["status_demanda"];
+          tarefa_id?: string | null;
+          video?: Json | null;
+        };
+        Relationships: [];
+      };
+      demandas_externas_usuarios: {
+        Row: {
+          criado_em: string;
+          email: string;
+          id: string;
+          nome: string;
+        };
+        Insert: {
+          criado_em?: string;
+          email: string;
+          id: string;
+          nome: string;
+        };
+        Update: {
+          criado_em?: string;
+          email?: string;
+          id?: string;
+          nome?: string;
+        };
+        Relationships: [];
+      };
+      email_logs: {
+        Row: {
+          assunto: string;
+          criado_em: string;
+          destinatario: string | null;
+          id: string;
+          mensagem: string;
+          resposta: string | null;
+          status: string;
+          tarefa_id: string | null;
+          tipo: string;
+          usuario_id: string | null;
+        };
+        Insert: {
+          assunto: string;
+          criado_em?: string;
+          destinatario?: string | null;
+          id?: string;
+          mensagem: string;
+          resposta?: string | null;
+          status: string;
+          tarefa_id?: string | null;
+          tipo: string;
+          usuario_id?: string | null;
+        };
+        Update: {
+          assunto?: string;
+          criado_em?: string;
+          destinatario?: string | null;
+          id?: string;
+          mensagem?: string;
+          resposta?: string | null;
+          status?: string;
+          tarefa_id?: string | null;
+          tipo?: string;
+          usuario_id?: string | null;
+        };
+        Relationships: [];
+      };
+      financeiro_transacoes: {
+        Row: {
+          cliente_id: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          data_pagamento: string;
+          descricao: string;
+          id: string;
+          tipo: string;
+          valor: number;
+        };
+        Insert: {
+          cliente_id?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_pagamento?: string;
+          descricao: string;
+          id?: string;
+          tipo: string;
+          valor?: number;
+        };
+        Update: {
+          cliente_id?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_pagamento?: string;
+          descricao?: string;
+          id?: string;
+          tipo?: string;
+          valor?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_transacoes_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ideias: {
+        Row: {
+          avaliado_em: string | null;
+          avaliado_por: string | null;
+          criado_em: string;
+          criado_por: string;
+          descricao: string | null;
+          id: string;
+          pontos: number | null;
+          status: string;
+          titulo: string;
+        };
+        Insert: {
+          avaliado_em?: string | null;
+          avaliado_por?: string | null;
+          criado_em?: string;
+          criado_por: string;
+          descricao?: string | null;
+          id?: string;
+          pontos?: number | null;
+          status?: string;
+          titulo: string;
+        };
+        Update: {
+          avaliado_em?: string | null;
+          avaliado_por?: string | null;
+          criado_em?: string;
+          criado_por?: string;
+          descricao?: string | null;
+          id?: string;
+          pontos?: number | null;
+          status?: string;
+          titulo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ideias_avaliado_por_fkey";
+            columns: ["avaliado_por"];
+            isOneToOne: false;
+            referencedRelation: "perfis_usuarios";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ideias_criado_por_fkey";
+            columns: ["criado_por"];
+            isOneToOne: false;
+            referencedRelation: "perfis_usuarios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pastas_links: {
+        Row: {
+          comentario: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          id: string;
+          nome: string;
+        };
+        Insert: {
+          comentario?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          nome: string;
+        };
+        Update: {
+          comentario?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          nome?: string;
+        };
+        Relationships: [];
+      };
+      pastas_links_itens: {
+        Row: {
+          criado_em: string;
+          id: string;
+          pasta_id: string;
+          url: string;
+        };
+        Insert: {
+          criado_em?: string;
+          id?: string;
+          pasta_id: string;
+          url: string;
+        };
+        Update: {
+          criado_em?: string;
+          id?: string;
+          pasta_id?: string;
+          url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pastas_links_itens_pasta_id_fkey";
+            columns: ["pasta_id"];
+            isOneToOne: false;
+            referencedRelation: "pastas_links";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      polos_ativacao: {
+        Row: {
+          atualizado_em: string;
+          contato: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          data_ativacao: string | null;
+          data_saida: string | null;
+          email: string | null;
+          id: string;
+          motivo_saida: string | null;
+          nivel: Database["public"]["Enums"]["nivel_polo"];
+          nome: string;
+          observacao: string | null;
+          produto: string | null;
+          situacao: Database["public"]["Enums"]["situacao_polo"];
+          valor_ativacao: number | null;
+        };
+        Insert: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_ativacao?: string | null;
+          data_saida?: string | null;
+          email?: string | null;
+          id?: string;
+          motivo_saida?: string | null;
+          nivel: Database["public"]["Enums"]["nivel_polo"];
+          nome: string;
+          observacao?: string | null;
+          produto?: string | null;
+          situacao?: Database["public"]["Enums"]["situacao_polo"];
+          valor_ativacao?: number | null;
+        };
+        Update: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_ativacao?: string | null;
+          data_saida?: string | null;
+          email?: string | null;
+          id?: string;
+          motivo_saida?: string | null;
+          nivel?: Database["public"]["Enums"]["nivel_polo"];
+          nome?: string;
+          observacao?: string | null;
+          produto?: string | null;
+          situacao?: Database["public"]["Enums"]["situacao_polo"];
+          valor_ativacao?: number | null;
+        };
+        Relationships: [];
+      };
+      perfis_usuarios: {
+        Row: {
+          avatar_url: string | null;
+          cargo: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id: string | null;
+          criado_em: string;
+          email: string;
+          id: string;
+          nome: string;
+          status: string;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          cargo?: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id?: string | null;
+          criado_em?: string;
+          email: string;
+          id: string;
+          nome: string;
+          status?: string;
+        };
+        Update: {
+          avatar_url?: string | null;
+          cargo?: Database["public"]["Enums"]["cargo_usuario"];
+          cliente_id?: string | null;
+          criado_em?: string;
+          email?: string;
+          id?: string;
+          nome?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "perfis_usuarios_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      projetos: {
+        Row: {
+          criado_em: string;
+          criado_por: string | null;
+          id: string;
+          nome: string;
+        };
+        Insert: {
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          nome: string;
+        };
+        Update: {
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          nome?: string;
+        };
+        Relationships: [];
+      };
+      tarefa_checklist_itens: {
+        Row: {
+          concluido: boolean;
+          criado_em: string;
+          id: string;
+          tarefa_id: string;
+          texto: string;
+        };
+        Insert: {
+          concluido?: boolean;
+          criado_em?: string;
+          id?: string;
+          tarefa_id: string;
+          texto: string;
+        };
+        Update: {
+          concluido?: boolean;
+          criado_em?: string;
+          id?: string;
+          tarefa_id?: string;
+          texto?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_checklist_itens_tarefa_id_fkey";
+            columns: ["tarefa_id"];
+            isOneToOne: false;
+            referencedRelation: "tarefas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tarefa_responsaveis: {
+        Row: {
+          criado_em: string;
+          id: string;
+          tarefa_id: string;
+          usuario_id: string;
+        };
+        Insert: {
+          criado_em?: string;
+          id?: string;
+          tarefa_id: string;
+          usuario_id: string;
+        };
+        Update: {
+          criado_em?: string;
+          id?: string;
+          tarefa_id?: string;
+          usuario_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_responsaveis_tarefa_id_fkey";
+            columns: ["tarefa_id"];
+            isOneToOne: false;
+            referencedRelation: "tarefas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tarefa_responsaveis_usuario_id_fkey";
+            columns: ["usuario_id"];
+            isOneToOne: false;
+            referencedRelation: "perfis_usuarios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tarefas: {
+        Row: {
+          anexos: Json;
+          audio: Json | null;
+          aviso_expirado_enviado_em: string | null;
+          aviso_lembrete_enviado_em: string | null;
+          cliente_id: string | null;
+          complexidade: Database["public"]["Enums"]["complexidade_tarefa"];
+          concluido_em: string | null;
+          criado_por: string | null;
+          data_criacao: string;
+          data_vencimento: string | null;
+          descricao: string | null;
+          escopo: Database["public"]["Enums"]["escopo_item"];
+          id: string;
+          prioridade: Database["public"]["Enums"]["prioridade_tarefa"];
+          projeto_id: string | null;
+          status: Database["public"]["Enums"]["status_tarefa"];
+          tipo: Database["public"]["Enums"]["tipo_item"];
+          titulo: string;
+          video: Json | null;
+        };
+        Insert: {
+          anexos?: Json;
+          audio?: Json | null;
+          aviso_expirado_enviado_em?: string | null;
+          aviso_lembrete_enviado_em?: string | null;
+          cliente_id?: string | null;
+          complexidade?: Database["public"]["Enums"]["complexidade_tarefa"];
+          concluido_em?: string | null;
+          criado_por?: string | null;
+          data_criacao?: string;
+          data_vencimento?: string | null;
+          descricao?: string | null;
+          escopo?: Database["public"]["Enums"]["escopo_item"];
+          id?: string;
+          prioridade?: Database["public"]["Enums"]["prioridade_tarefa"];
+          projeto_id?: string | null;
+          status?: Database["public"]["Enums"]["status_tarefa"];
+          tipo?: Database["public"]["Enums"]["tipo_item"];
+          titulo: string;
+          video?: Json | null;
+        };
+        Update: {
+          anexos?: Json;
+          audio?: Json | null;
+          aviso_expirado_enviado_em?: string | null;
+          aviso_lembrete_enviado_em?: string | null;
+          cliente_id?: string | null;
+          complexidade?: Database["public"]["Enums"]["complexidade_tarefa"];
+          concluido_em?: string | null;
+          criado_por?: string | null;
+          data_criacao?: string;
+          data_vencimento?: string | null;
+          descricao?: string | null;
+          escopo?: Database["public"]["Enums"]["escopo_item"];
+          id?: string;
+          prioridade?: Database["public"]["Enums"]["prioridade_tarefa"];
+          projeto_id?: string | null;
+          status?: Database["public"]["Enums"]["status_tarefa"];
+          tipo?: Database["public"]["Enums"]["tipo_item"];
+          titulo?: string;
+          video?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tarefas_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tarefas_projeto_id_fkey";
+            columns: ["projeto_id"];
+            isOneToOne: false;
+            referencedRelation: "projetos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      is_admin: { Args: { _user_id: string }; Returns: boolean };
+      tem_perfil: { Args: { _user_id: string }; Returns: boolean };
+    };
+    Enums: {
+      cargo_usuario: "Admin" | "Membro" | "Cliente" | "Supervisor";
+      complexidade_tarefa: "Fácil" | "Média" | "Difícil";
+      escopo_item: "geral" | "pessoal";
+      nivel_polo: "N1" | "N2" | "N3";
+      plano_cliente: "Bronze" | "Prata" | "Ouro" | "Diamond";
+      prioridade_tarefa: "Alta" | "Média" | "Baixa" | "Nenhuma";
+      situacao_polo: "ativo" | "reativado" | "desligado";
+      status_demanda: "pendente" | "aceita" | "recusada" | "transferida";
+      status_tarefa: "Pendente" | "Em Progresso" | "Em Análise" | "Concluído";
+      tipo_item: "tarefa" | "lembrete";
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+};
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never;
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never;
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {
+      cargo_usuario: ["Admin", "Membro", "Cliente", "Supervisor"],
+      complexidade_tarefa: ["Fácil", "Média", "Difícil"],
+      escopo_item: ["geral", "pessoal"],
+      nivel_polo: ["N1", "N2", "N3"],
+      plano_cliente: ["Bronze", "Prata", "Ouro", "Diamond"],
+      prioridade_tarefa: ["Alta", "Média", "Baixa", "Nenhuma"],
+      situacao_polo: ["ativo", "reativado", "desligado"],
+      status_demanda: ["pendente", "aceita", "recusada", "transferida"],
+      status_tarefa: ["Pendente", "Em Progresso", "Em Análise", "Concluído"],
+      tipo_item: ["tarefa", "lembrete"],
+    },
+  },
+} as const;

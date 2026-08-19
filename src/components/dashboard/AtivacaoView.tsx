@@ -1,0 +1,761 @@
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { listPolos, createPolo, updatePolo, deletePolo } from "@/lib/polos.functions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Building2,
+  Search,
+  Eye,
+  SlidersHorizontal,
+  X,
+  LogOut,
+} from "lucide-react";
+
+type Nivel = "N1" | "N2" | "N3";
+type Situacao = "ativo" | "reativado" | "desligado";
+type Polo = Awaited<ReturnType<typeof listPolos>>[number];
+
+type FormState = {
+  nivel: Nivel;
+  nome: string;
+  contato: string;
+  email: string;
+  produto: string;
+  data_ativacao: string;
+  valor_ativacao: string;
+  situacao: Situacao;
+  observacao: string;
+};
+
+const FORM_VAZIO: FormState = {
+  nivel: "N1",
+  nome: "",
+  contato: "",
+  email: "",
+  produto: "",
+  data_ativacao: "",
+  valor_ativacao: "",
+  situacao: "ativo",
+  observacao: "",
+};
+
+function poloParaForm(p: Polo): FormState {
+  return {
+    nivel: p.nivel as Nivel,
+    nome: p.nome,
+    contato: p.contato ?? "",
+    email: p.email ?? "",
+    produto: p.produto ?? "",
+    data_ativacao: p.data_ativacao ?? "",
+    valor_ativacao: p.valor_ativacao != null ? String(p.valor_ativacao) : "",
+    situacao: p.situacao as Situacao,
+    observacao: p.observacao ?? "",
+  };
+}
+
+function formatarValor(v: number | null): string {
+  if (v == null) return "—";
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatarData(d: string | null): string {
+  if (!d) return "—";
+  return new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR");
+}
+
+/** Mantém só dígitos e um separador decimal (vírgula ou ponto) enquanto digita. */
+function sanitizarValor(raw: string): string {
+  const limpo = raw.replace(/[^\d.,]/g, "");
+  const partes = limpo.split(/[.,]/);
+  if (partes.length <= 2) return limpo;
+  return `${partes[0]},${partes.slice(1).join("")}`;
+}
+
+function paraNumero(v: string): number {
+  return Number(v.replace(",", "."));
+}
+
+const NIVEL_BADGE: Record<Nivel, string> = {
+  N1: "bg-foreground text-background",
+  N2: "bg-gray-500 text-white",
+  N3: "bg-gray-200 text-black",
+};
+
+const SITUACAO_LABEL: Record<Situacao, string> = {
+  ativo: "Ativo",
+  reativado: "Reativado",
+  desligado: "Saída",
+};
+
+const SITUACAO_BADGE: Record<Situacao, string> = {
+  ativo: "bg-foreground text-background",
+  reativado: "bg-amber-500 text-white",
+  desligado: "bg-rose-500 text-white",
+};
+
+export function AtivacaoView() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listPolos);
+  const createFn = useServerFn(createPolo);
+  const updateFn = useServerFn(updatePolo);
+  const deleteFn = useServerFn(deletePolo);
+
+  const { data: polos = [], isLoading } = useQuery({
+    queryKey: ["polos-ativacao"],
+    queryFn: () => listFn(),
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["polos-ativacao"] });
+
+  // Polos desligados saem da Ativação e passam a viver só na tela Reativação.
+  const polosAtivos = useMemo(() => polos.filter((p) => p.situacao !== "desligado"), [polos]);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
+  const [form, setForm] = useState<FormState>(FORM_VAZIO);
+
+  const [inativarAlvo, setInativarAlvo] = useState<Polo | null>(null);
+  const [inativarData, setInativarData] = useState("");
+  const [inativarMotivo, setInativarMotivo] = useState("");
+
+  const [busca, setBusca] = useState("");
+  const [filtroNivel, setFiltroNivel] = useState<"todos" | Nivel>("todos");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
+  const [valorMin, setValorMin] = useState("");
+  const [valorMax, setValorMax] = useState("");
+
+  const filtrosAvancadosAtivos = [
+    filtroNivel !== "todos",
+    !!dataDe,
+    !!dataAte,
+    !!valorMin,
+    !!valorMax,
+  ].filter(Boolean).length;
+
+  const limparFiltros = () => {
+    setFiltroNivel("todos");
+    setDataDe("");
+    setDataAte("");
+    setValorMin("");
+    setValorMax("");
+  };
+
+  const polosFiltrados = useMemo(() => {
+    const buscaNorm = busca.trim().toLowerCase();
+    return polosAtivos.filter((p) => {
+      if (filtroNivel !== "todos" && p.nivel !== filtroNivel) return false;
+      if (dataDe && (!p.data_ativacao || p.data_ativacao < dataDe)) return false;
+      if (dataAte && (!p.data_ativacao || p.data_ativacao > dataAte)) return false;
+      if (valorMin && (p.valor_ativacao == null || p.valor_ativacao < paraNumero(valorMin)))
+        return false;
+      if (valorMax && (p.valor_ativacao == null || p.valor_ativacao > paraNumero(valorMax)))
+        return false;
+      if (buscaNorm) {
+        const alvo = [p.nome, p.contato, p.email, p.produto]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!alvo.includes(buscaNorm)) return false;
+      }
+      return true;
+    });
+  }, [polosAtivos, busca, filtroNivel, dataDe, dataAte, valorMin, valorMax]);
+
+  const abrirNovo = () => {
+    setEditId(null);
+    setViewOnly(false);
+    setForm(FORM_VAZIO);
+    setDialogOpen(true);
+  };
+
+  const abrirEdicao = (p: Polo) => {
+    setEditId(p.id);
+    setViewOnly(false);
+    setForm(poloParaForm(p));
+    setDialogOpen(true);
+  };
+
+  const abrirVisualizar = (p: Polo) => {
+    setEditId(p.id);
+    setViewOnly(true);
+    setForm(poloParaForm(p));
+    setDialogOpen(true);
+  };
+
+  const abrirInativar = (p: Polo) => {
+    setInativarAlvo(p);
+    setInativarData("");
+    setInativarMotivo("");
+  };
+
+  const salvarMut = useMutation({
+    mutationFn: async (vars: { id?: string } & FormState) => {
+      const payload = {
+        nivel: vars.nivel,
+        nome: vars.nome.trim(),
+        contato: vars.contato.trim() || undefined,
+        email: vars.email.trim() || undefined,
+        produto: vars.produto.trim() || undefined,
+        data_ativacao: vars.data_ativacao || undefined,
+        valor_ativacao: vars.valor_ativacao ? Number(vars.valor_ativacao) : undefined,
+        situacao: vars.situacao,
+        observacao: vars.observacao.trim() || undefined,
+      };
+      if (vars.id) {
+        await updateFn({ data: { id: vars.id, ...payload } });
+      } else {
+        await createFn({ data: payload });
+      }
+    },
+    onSuccess: () => {
+      toast.success(editId ? "Polo atualizado." : "Polo cadastrado.");
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar polo."),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Polo excluído.");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir polo."),
+  });
+
+  const inativarMut = useMutation({
+    mutationFn: async () => {
+      if (!inativarAlvo) return;
+      await updateFn({
+        data: {
+          id: inativarAlvo.id,
+          nivel: inativarAlvo.nivel as Nivel,
+          nome: inativarAlvo.nome,
+          contato: inativarAlvo.contato || undefined,
+          email: inativarAlvo.email || undefined,
+          produto: inativarAlvo.produto || undefined,
+          data_ativacao: inativarAlvo.data_ativacao || undefined,
+          valor_ativacao: inativarAlvo.valor_ativacao ?? undefined,
+          situacao: "desligado",
+          data_saida: inativarData,
+          motivo_saida: inativarMotivo.trim(),
+          observacao: inativarAlvo.observacao || undefined,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Polo inativado — agora ele aparece em Reativação.");
+      setInativarAlvo(null);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao inativar polo."),
+  });
+
+  const salvar = () => {
+    if (!form.nome.trim()) {
+      toast.error("Informe o nome do polo.");
+      return;
+    }
+    salvarMut.mutate({ id: editId ?? undefined, ...form });
+  };
+
+  const confirmarInativacao = () => {
+    if (!inativarData) {
+      toast.error("Informe a data de saída.");
+      return;
+    }
+    if (!inativarMotivo.trim()) {
+      toast.error("Informe o motivo da saída.");
+      return;
+    }
+    inativarMut.mutate();
+  };
+
+  const totalCadastrado = polosAtivos.length;
+  const emOperacao = polosAtivos.filter((p) => p.situacao === "ativo").length;
+  const valorTotal = polosAtivos.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0);
+
+  return (
+    <div className="w-full space-y-6 bg-[var(--surface-1)] px-6 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Ativação de Polos
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cadastro e listagem dos polos ativos.
+          </p>
+        </div>
+        <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
+          <Plus className="mr-1.5 h-4 w-4" /> Novo polo
+        </Button>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
+          <p className="text-sm text-muted-foreground">Total cadastrado</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {totalCadastrado}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
+          <p className="text-sm text-muted-foreground">Em operação</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{emOperacao}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
+          <p className="text-sm text-muted-foreground">Valor de ativação</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {formatarValor(valorTotal)}
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+          <div className="relative min-w-56 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, contato, e-mail ou produto"
+              className="rounded-full pl-9"
+            />
+          </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-1.5 rounded-full">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                Filtrar
+                {filtrosAvancadosAtivos > 0 && (
+                  <Badge className="ml-1 h-5 min-w-5 justify-center rounded-full bg-foreground px-1 text-background">
+                    {filtrosAvancadosAtivos}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 space-y-3" align="end">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nível</Label>
+                <Select
+                  value={filtroNivel}
+                  onValueChange={(v) => setFiltroNivel(v as "todos" | Nivel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="N1">N1</SelectItem>
+                    <SelectItem value="N2">N2</SelectItem>
+                    <SelectItem value="N3">N3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Ativação de</Label>
+                  <Input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">até</Label>
+                  <Input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="valor-min" className="text-xs text-muted-foreground">
+                    Valor mínimo
+                  </Label>
+                  <Input
+                    id="valor-min"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={valorMin}
+                    onChange={(e) => setValorMin(sanitizarValor(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="valor-max" className="text-xs text-muted-foreground">
+                    Valor máximo
+                  </Label>
+                  <Input
+                    id="valor-max"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={valorMax}
+                    onChange={(e) => setValorMax(sanitizarValor(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {filtrosAvancadosAtivos > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={limparFiltros}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground">Nível</TableHead>
+                <TableHead className="text-muted-foreground">Nome</TableHead>
+                <TableHead className="text-muted-foreground">Contato</TableHead>
+                <TableHead className="text-muted-foreground">Produto</TableHead>
+                <TableHead className="text-muted-foreground">Ativação</TableHead>
+                <TableHead className="text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-muted-foreground">Situação</TableHead>
+                <TableHead className="text-right text-muted-foreground">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                    Carregando…
+                  </TableCell>
+                </TableRow>
+              ) : polosFiltrados.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                    {polosAtivos.length === 0 ? (
+                      <span className="inline-flex flex-col items-center gap-2">
+                        <Building2 className="h-8 w-8 text-muted-foreground" />
+                        Nenhum polo cadastrado ainda.
+                      </span>
+                    ) : (
+                      "Nenhum registro encontrado."
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                polosFiltrados.map((p) => (
+                  <TableRow key={p.id} className="border-border hover:bg-accent/50">
+                    <TableCell>
+                      <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{p.nome}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{p.contato || "—"}</div>
+                      {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
+                    </TableCell>
+                    <TableCell>{p.produto || "—"}</TableCell>
+                    <TableCell>{formatarData(p.data_ativacao)}</TableCell>
+                    <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
+                    <TableCell>
+                      <Badge className={SITUACAO_BADGE[p.situacao as Situacao]}>
+                        {SITUACAO_LABEL[p.situacao as Situacao]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => abrirVisualizar(p)}
+                          title="Visualizar polo"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => abrirEdicao(p)}
+                          title="Editar polo"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                          onClick={() => abrirInativar(p)}
+                          title="Inativar polo"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-red-500 hover:text-red-600"
+                              title="Excluir polo"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir "{p.nome}"?</AlertDialogTitle>
+                              <AlertDialogDescription>Ação permanente.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMut.mutate(p.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Cadastrar / editar / visualizar */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {viewOnly ? "Detalhes do polo" : editId ? "Editar polo" : "Novo polo"}
+            </DialogTitle>
+            <DialogDescription>Preencha os dados de ativação do polo.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Nível</Label>
+              <RadioGroup
+                value={form.nivel}
+                onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
+                disabled={viewOnly}
+                className="flex items-center gap-4"
+              >
+                {(["N1", "N2", "N3"] as const).map((n) => (
+                  <label key={n} className="flex items-center gap-1.5 text-sm">
+                    <RadioGroupItem value={n} id={`nivel-${n}`} />
+                    {n}
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="polo-nome">Nome do polo</Label>
+              <Input
+                id="polo-nome"
+                value={form.nome}
+                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                disabled={viewOnly}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="polo-contato">Contato</Label>
+              <Input
+                id="polo-contato"
+                value={form.contato}
+                onChange={(e) => setForm((f) => ({ ...f, contato: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="polo-email">E-mail</Label>
+              <Input
+                id="polo-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="polo-produto">Produto</Label>
+              <Input
+                id="polo-produto"
+                value={form.produto}
+                onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="polo-data">Data de ativação</Label>
+              <Input
+                id="polo-data"
+                type="date"
+                value={form.data_ativacao}
+                onChange={(e) => setForm((f) => ({ ...f, data_ativacao: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="polo-valor">Valor de ativação (R$)</Label>
+              <Input
+                id="polo-valor"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.valor_ativacao}
+                onChange={(e) => setForm((f) => ({ ...f, valor_ativacao: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Situação</Label>
+              <Select
+                value={form.situacao}
+                onValueChange={(v) => setForm((f) => ({ ...f, situacao: v as Situacao }))}
+                disabled={viewOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="reativado">Reativado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="polo-obs">Observação</Label>
+              <Textarea
+                id="polo-obs"
+                rows={3}
+                value={form.observacao}
+                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                disabled={viewOnly}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            {viewOnly ? (
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Fechar
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={salvar} disabled={salvarMut.isPending}>
+                  {editId ? "Salvar" : "Cadastrar"}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inativar polo */}
+      <Dialog open={!!inativarAlvo} onOpenChange={(o) => !o && setInativarAlvo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Inativar "{inativarAlvo?.nome}"</DialogTitle>
+            <DialogDescription>
+              O polo sai da Ativação e passa a aparecer em Reativação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="inativar-data">Data de saída</Label>
+              <Input
+                id="inativar-data"
+                type="date"
+                value={inativarData}
+                onChange={(e) => setInativarData(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="inativar-motivo">Motivo da saída</Label>
+              <Textarea
+                id="inativar-motivo"
+                rows={3}
+                value={inativarMotivo}
+                onChange={(e) => setInativarMotivo(e.target.value)}
+                placeholder="Descreva o motivo..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInativarAlvo(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmarInativacao}
+              disabled={inativarMut.isPending}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              Inativar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
