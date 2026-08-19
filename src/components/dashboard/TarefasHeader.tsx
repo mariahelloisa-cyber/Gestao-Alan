@@ -39,7 +39,6 @@ export function TarefasHeader({
 }) {
   const {
     tarefas,
-    clientes,
     membros,
     myId,
     myNome,
@@ -53,14 +52,12 @@ export function TarefasHeader({
     geralStatusFilter,
     setGeralStatusFilter,
     geralEmpresaFilter,
-    setGeralEmpresaFilter,
     geralMembroFilter,
     setGeralMembroFilter,
   } = useTasks();
 
   const [busca, setBusca] = useState("");
   const [prioridade, setPrioridade] = useState<Prioridade | "todas">("todas");
-  const [empresa, setEmpresa] = useState<string | "todas">("todas");
   const [dataDe, setDataDe] = useState("");
   const [dataAte, setDataAte] = useState("");
 
@@ -91,23 +88,6 @@ export function TarefasHeader({
           (geralMembroFilter === "todos" || t.responsaveis.some((r) => r.id === geralMembroFilter)),
       ).length,
     [tarefas, adminIds, geralEmpresaFilter, geralMembroFilter],
-  );
-
-  const empresasComMinhas = useMemo(() => {
-    const ids = new Set(
-      tarefas
-        .filter(
-          (t) => (t.tipo ?? "tarefa") === "tarefa" && t.responsaveis.some((r) => r.id === myId),
-        )
-        .map((t) => t.cliente_id)
-        .filter(Boolean) as string[],
-    );
-    return clientes.filter((c) => ids.has(c.id));
-  }, [tarefas, clientes, myId]);
-
-  const empresasAtivas = useMemo(
-    () => clientes.filter((c) => (c.status ?? "ativo") === "ativo"),
-    [clientes],
   );
 
   return (
@@ -213,37 +193,6 @@ export function TarefasHeader({
                 style={{ backgroundColor: statusCor[s] }}
               />
               {s}
-            </DropdownMenuItem>
-          ))}
-        </FiltroPill>
-
-        <FiltroPill
-          label={
-            mode === "geral"
-              ? geralEmpresaFilter === "todas"
-                ? "Todas Empresas"
-                : (clientes.find((c) => c.id === geralEmpresaFilter)?.nome_empresa ?? "Empresa")
-              : empresa === "todas"
-                ? "Todas Empresas"
-                : (clientes.find((c) => c.id === empresa)?.nome_empresa ?? "Empresa")
-          }
-        >
-          <DropdownMenuItem
-            onClick={() =>
-              mode === "geral" ? setGeralEmpresaFilter("todas") : setEmpresa("todas")
-            }
-            className="text-sm"
-          >
-            Todas Empresas
-          </DropdownMenuItem>
-          {(mode === "geral" ? empresasAtivas : empresasComMinhas).map((c) => (
-            <DropdownMenuItem
-              key={c.id}
-              onClick={() => (mode === "geral" ? setGeralEmpresaFilter(c.id) : setEmpresa(c.id))}
-              className="text-sm"
-            >
-              <span className="mr-2 h-2 w-2 rounded-full" style={{ backgroundColor: c.cor }} />
-              {c.nome_empresa}
             </DropdownMenuItem>
           ))}
         </FiltroPill>

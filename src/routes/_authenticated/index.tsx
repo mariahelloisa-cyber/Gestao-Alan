@@ -9,8 +9,9 @@ import { TaskDetailDialog } from "@/components/dashboard/TaskDetailDialog";
 import { MembersView } from "@/components/dashboard/MembersView";
 import { AtivacaoView } from "@/components/dashboard/AtivacaoView";
 import { ReativacaoView } from "@/components/dashboard/ReativacaoView";
+import { NegociacoesView } from "@/components/dashboard/NegociacoesView";
+import { EscolasTecnicasView } from "@/components/dashboard/EscolasTecnicasView";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { SystemSettingsView } from "@/components/dashboard/SystemSettingsView";
 import { LinksView } from "@/components/dashboard/LinksView";
 import { FinalizadosView } from "@/components/dashboard/FinalizadosView";
 import { Plus } from "lucide-react";
@@ -45,8 +46,7 @@ function Index() {
 function WorkspaceContent() {
   const { workspace, mainView, setMainView, myCargo } = useTasks();
   const isAdminLike = myCargo === "Admin" || myCargo === "Supervisor";
-  const blockedForMembro =
-    !isAdminLike && (workspace.tipo === "configuracoes" || workspace.tipo === "finalizados");
+  const blockedForMembro = !isAdminLike && workspace.tipo === "finalizados";
 
   if (workspace.tipo === "dashboard") {
     return (
@@ -118,18 +118,26 @@ function WorkspaceContent() {
     );
   }
 
-  if (workspace.tipo === "membros") {
+  if (workspace.tipo === "negociacoes") {
     return (
       <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
-        <MembersView />
+        <NegociacoesView />
       </div>
     );
   }
 
-  if (workspace.tipo === "configuracoes") {
+  if (workspace.tipo === "escolas-tecnicas") {
     return (
       <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
-        <SystemSettingsView />
+        <EscolasTecnicasView />
+      </div>
+    );
+  }
+
+  if (workspace.tipo === "membros") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+        <MembersView />
       </div>
     );
   }

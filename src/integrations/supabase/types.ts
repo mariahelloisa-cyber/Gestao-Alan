@@ -141,30 +141,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      configuracoes_sistema: {
-        Row: {
-          atualizado_em: string;
-          atualizado_por: string | null;
-          chave: string;
-          descricao: string | null;
-          valor: string | null;
-        };
-        Insert: {
-          atualizado_em?: string;
-          atualizado_por?: string | null;
-          chave: string;
-          descricao?: string | null;
-          valor?: string | null;
-        };
-        Update: {
-          atualizado_em?: string;
-          atualizado_por?: string | null;
-          chave?: string;
-          descricao?: string | null;
-          valor?: string | null;
-        };
-        Relationships: [];
-      };
       convites: {
         Row: {
           aceito_em: string | null;
@@ -519,6 +495,84 @@ export type Database = {
           produto?: string | null;
           situacao?: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao?: number | null;
+        };
+        Relationships: [];
+      };
+      escolas_tecnicas: {
+        Row: {
+          atualizado_em: string;
+          cidade: string | null;
+          contato: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          cursos: string[];
+          email: string | null;
+          estado: string | null;
+          id: string;
+          nome: string;
+          observacao: string | null;
+        };
+        Insert: {
+          atualizado_em?: string;
+          cidade?: string | null;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          cursos?: string[];
+          email?: string | null;
+          estado?: string | null;
+          id?: string;
+          nome: string;
+          observacao?: string | null;
+        };
+        Update: {
+          atualizado_em?: string;
+          cidade?: string | null;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          cursos?: string[];
+          email?: string | null;
+          estado?: string | null;
+          id?: string;
+          nome?: string;
+          observacao?: string | null;
+        };
+        Relationships: [];
+      };
+      negociacoes: {
+        Row: {
+          atualizado_em: string;
+          contato: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          email: string | null;
+          id: string;
+          nome: string;
+          numero_funcionarios: number | null;
+          observacao: string | null;
+        };
+        Insert: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          email?: string | null;
+          id?: string;
+          nome: string;
+          numero_funcionarios?: number | null;
+          observacao?: string | null;
+        };
+        Update: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          email?: string | null;
+          id?: string;
+          nome?: string;
+          numero_funcionarios?: number | null;
+          observacao?: string | null;
         };
         Relationships: [];
       };

@@ -44,13 +44,14 @@ export type WorkspaceView =
   | { tipo: "dashboard" }
   | { tipo: "ativacao" }
   | { tipo: "reativacao" }
+  | { tipo: "negociacoes" }
+  | { tipo: "escolas-tecnicas" }
   | { tipo: "todos-clientes" }
   | { tipo: "calendario-geral" }
   | { tipo: "membros" }
   | { tipo: "financeiro" }
   | { tipo: "planos" }
   | { tipo: "clientes-inativos" }
-  | { tipo: "configuracoes" }
   | { tipo: "demandas" }
   | { tipo: "links" }
   | { tipo: "finalizados" }

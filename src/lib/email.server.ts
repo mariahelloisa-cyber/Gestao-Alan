@@ -1,3 +1,4 @@
+import process from "node:process";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type EmailSettings = {
@@ -6,19 +7,12 @@ export type EmailSettings = {
   fromName: string;
 };
 
-export async function getEmailSettings(): Promise<EmailSettings> {
-  const { data, error } = await supabaseAdmin
-    .from("configuracoes_sistema")
-    .select("chave, valor")
-    .in("chave", ["resend_api_key", "email_from_address", "email_from_name"]);
-
-  if (error) throw new Error(error.message);
-
-  const map = new Map((data ?? []).map((r) => [r.chave, r.valor ?? ""]));
+/** Credenciais da Resend vêm do .env — nunca de uma tela editável no app. */
+export function getEmailSettings(): EmailSettings {
   return {
-    apiKey: map.get("resend_api_key") ?? "",
-    fromEmail: map.get("email_from_address") ?? "",
-    fromName: map.get("email_from_name") ?? "Painel",
+    apiKey: process.env.RESEND_API_KEY ?? "",
+    fromEmail: process.env.RESEND_FROM_EMAIL ?? "",
+    fromName: process.env.RESEND_FROM_NAME || "Painel",
   };
 }
 

@@ -17,16 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, ShieldCheck, User } from "lucide-react";
+import { Shield, User } from "lucide-react";
 import { toast } from "sonner";
 import { createInvites } from "@/lib/data.functions";
 
-type Cargo = "Membro" | "Admin" | "Supervisor";
+type Cargo = "Membro" | "Admin";
 
 const DESCRICAO: Record<Cargo, string> = {
   Membro: "Pode acessar todos os itens públicos em seu Espaço de trabalho.",
   Admin: "Pode gerenciar membros, faturamento e configurações do Espaço.",
-  Supervisor: "Acesso completo, igual ao Admin — gerencia tudo do Espaço.",
 };
 
 export function InviteDialog({
@@ -73,7 +72,7 @@ export function InviteDialog({
     }
   };
 
-  const Icon = cargo === "Admin" ? Shield : cargo === "Supervisor" ? ShieldCheck : User;
+  const Icon = cargo === "Admin" ? Shield : User;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -125,12 +124,6 @@ export function InviteDialog({
                   <div className="flex items-center gap-2">
                     <Shield className="h-3.5 w-3.5" />
                     <span>Admin</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Supervisor">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>Supervisor</span>
                   </div>
                 </SelectItem>
               </SelectContent>

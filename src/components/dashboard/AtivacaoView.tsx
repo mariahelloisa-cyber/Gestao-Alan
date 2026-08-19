@@ -126,18 +126,6 @@ const NIVEL_BADGE: Record<Nivel, string> = {
   N3: "bg-gray-200 text-black",
 };
 
-const SITUACAO_LABEL: Record<Situacao, string> = {
-  ativo: "Ativo",
-  reativado: "Reativado",
-  desligado: "Saída",
-};
-
-const SITUACAO_BADGE: Record<Situacao, string> = {
-  ativo: "bg-foreground text-background",
-  reativado: "bg-amber-500 text-white",
-  desligado: "bg-rose-500 text-white",
-};
-
 export function AtivacaoView() {
   const qc = useQueryClient();
   const listFn = useServerFn(listPolos);
@@ -145,9 +133,14 @@ export function AtivacaoView() {
   const updateFn = useServerFn(updatePolo);
   const deleteFn = useServerFn(deletePolo);
 
-  const { data: polos = [], isLoading } = useQuery({
+  const {
+    data: polos = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["polos-ativacao"],
     queryFn: () => listFn(),
+    retry: 1,
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["polos-ativacao"] });
@@ -457,26 +450,32 @@ export function AtivacaoView() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Nível</TableHead>
+                <TableHead className="pl-4 text-muted-foreground">Nível</TableHead>
                 <TableHead className="text-muted-foreground">Nome</TableHead>
                 <TableHead className="text-muted-foreground">Contato</TableHead>
                 <TableHead className="text-muted-foreground">Produto</TableHead>
                 <TableHead className="text-muted-foreground">Ativação</TableHead>
                 <TableHead className="text-muted-foreground">Valor</TableHead>
-                <TableHead className="text-muted-foreground">Situação</TableHead>
-                <TableHead className="text-right text-muted-foreground">Ações</TableHead>
+                <TableHead className="pr-4 text-right text-muted-foreground"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     Carregando…
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-destructive">
+                    Falha ao carregar:{" "}
+                    {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : polosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     {polosAtivos.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <Building2 className="h-8 w-8 text-muted-foreground" />
@@ -490,7 +489,7 @@ export function AtivacaoView() {
               ) : (
                 polosFiltrados.map((p) => (
                   <TableRow key={p.id} className="border-border hover:bg-accent/50">
-                    <TableCell>
+                    <TableCell className="pl-4">
                       <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">{p.nome}</TableCell>
@@ -498,15 +497,14 @@ export function AtivacaoView() {
                       <div className="text-sm">{p.contato || "—"}</div>
                       {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
                     </TableCell>
-                    <TableCell>{p.produto || "—"}</TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <div className="truncate" title={p.produto || undefined}>
+                        {p.produto || "—"}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
                     <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
-                    <TableCell>
-                      <Badge className={SITUACAO_BADGE[p.situacao as Situacao]}>
-                        {SITUACAO_LABEL[p.situacao as Situacao]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
+                    <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"

@@ -5,12 +5,12 @@ import {
   UserPlus,
   LogOut,
   Search,
-  ChevronDown,
   Menu,
   ClipboardList,
   Rocket,
   RotateCcw,
-  Mail,
+  Handshake,
+  GraduationCap,
   Link2,
   CheckCheck,
   Sun,
@@ -34,21 +34,23 @@ export function PrimarySidebar() {
   const active =
     workspace.tipo === "membros"
       ? "Membros"
-      : workspace.tipo === "configuracoes"
-        ? "Configurações"
-        : workspace.tipo === "dashboard"
-          ? "Início"
-          : workspace.tipo === "ativacao"
-            ? "Ativação"
-            : workspace.tipo === "reativacao"
-              ? "Reativação"
-              : workspace.tipo === "tarefas-gerais"
-                ? "Tarefas"
-                : workspace.tipo === "links"
-                  ? "Links"
-                  : workspace.tipo === "finalizados"
-                    ? "Finalizados"
-                    : "Minhas tarefas";
+      : workspace.tipo === "dashboard"
+        ? "Início"
+        : workspace.tipo === "ativacao"
+          ? "Ativação"
+          : workspace.tipo === "reativacao"
+            ? "Reativação"
+            : workspace.tipo === "negociacoes"
+              ? "Negociações"
+              : workspace.tipo === "escolas-tecnicas"
+                ? "Escolas Técnicas"
+                : workspace.tipo === "tarefas-gerais"
+                  ? "Tarefas"
+                  : workspace.tipo === "links"
+                    ? "Links"
+                    : workspace.tipo === "finalizados"
+                      ? "Finalizados"
+                      : "Minhas tarefas";
 
   const items: { icon: typeof Home; label: string; onClick: () => void }[] = [
     {
@@ -67,6 +69,16 @@ export function PrimarySidebar() {
       icon: RotateCcw,
       label: "Reativação",
       onClick: () => setWorkspace({ tipo: "reativacao" }),
+    },
+    {
+      icon: Handshake,
+      label: "Negociações",
+      onClick: () => setWorkspace({ tipo: "negociacoes" }),
+    },
+    {
+      icon: GraduationCap,
+      label: "Escolas Técnicas",
+      onClick: () => setWorkspace({ tipo: "escolas-tecnicas" }),
     },
     {
       icon: ClipboardList,
@@ -104,7 +116,6 @@ export function PrimarySidebar() {
                 <img src={logoBrasil} alt="Logo" className="h-6 w-6 object-contain" />
               </div>
               <div className="flex-1 truncate text-sm font-medium">Painel</div>
-              <ChevronDown className="h-4 w-4 text-sidebar-foreground/70" />
             </>
           )}
         </div>
@@ -153,16 +164,6 @@ export function PrimarySidebar() {
               expanded={expanded}
               active={active === "Finalizados"}
               onClick={() => setWorkspace({ tipo: "finalizados" })}
-            />
-          )}
-
-          {isAdminLike && (
-            <NavButton
-              icon={Mail}
-              label="Configurações"
-              expanded={expanded}
-              active={active === "Configurações"}
-              onClick={() => setWorkspace({ tipo: "configuracoes" })}
             />
           )}
 
