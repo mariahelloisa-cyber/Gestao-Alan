@@ -8,11 +8,19 @@ import {
   updateEscolaTecnica,
   deleteEscolaTecnica,
 } from "@/lib/escolas-tecnicas.functions";
+import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -52,6 +60,7 @@ type FormState = {
   cidade: string;
   cursos: string[];
   observacao: string;
+  responsavel_id: string;
 };
 
 const FORM_VAZIO: FormState = {
@@ -62,6 +71,7 @@ const FORM_VAZIO: FormState = {
   cidade: "",
   cursos: [],
   observacao: "",
+  responsavel_id: "",
 };
 
 function escolaParaForm(e: EscolaTecnica): FormState {
@@ -73,11 +83,13 @@ function escolaParaForm(e: EscolaTecnica): FormState {
     cidade: e.cidade ?? "",
     cursos: e.cursos ?? [],
     observacao: e.observacao ?? "",
+    responsavel_id: e.responsavel_id ?? "",
   };
 }
 
 export function EscolasTecnicasView() {
   const qc = useQueryClient();
+  const { membros } = useTasks();
   const listFn = useServerFn(listEscolasTecnicas);
   const createFn = useServerFn(createEscolaTecnica);
   const updateFn = useServerFn(updateEscolaTecnica);
@@ -163,6 +175,7 @@ export function EscolasTecnicasView() {
         cidade: vars.cidade.trim() || undefined,
         cursos: vars.cursos,
         observacao: vars.observacao.trim() || undefined,
+        responsavel_id: vars.responsavel_id || undefined,
       };
       if (vars.id) {
         await updateFn({ data: { id: vars.id, ...payload } });
@@ -196,7 +209,7 @@ export function EscolasTecnicasView() {
   };
 
   return (
-    <div className="w-full space-y-6 bg-[var(--surface-1)] px-6 py-6">
+    <div className="w-full space-y-6 px-6 py-6">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -239,26 +252,27 @@ export function EscolasTecnicasView() {
                 <TableHead className="text-muted-foreground">Contato</TableHead>
                 <TableHead className="text-muted-foreground">Localização</TableHead>
                 <TableHead className="text-muted-foreground">Cursos</TableHead>
+                <TableHead className="text-muted-foreground">Responsável</TableHead>
                 <TableHead className="pr-4 text-right text-muted-foreground">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : escolasFiltradas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     {escolas.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <GraduationCap className="h-8 w-8 text-muted-foreground" />
@@ -286,6 +300,9 @@ export function EscolasTecnicasView() {
                       <div className="truncate" title={(e.cursos ?? []).join(", ") || undefined}>
                         {(e.cursos ?? []).length > 0 ? e.cursos.join(", ") : "—"}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {membros.find((m) => m.id === e.responsavel_id)?.nome ?? "—"}
                     </TableCell>
                     <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1">
@@ -451,6 +468,27 @@ export function EscolasTecnicasView() {
               ) : (
                 viewOnly && <p className="pt-1 text-sm text-muted-foreground">Nenhum curso.</p>
               )}
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Responsável</Label>
+              <Select
+                value={form.responsavel_id}
+                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                disabled={viewOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {membros.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                      {m.cargo ? ` (${m.cargo})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">

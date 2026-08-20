@@ -8,10 +8,18 @@ import {
   updateNegociacao,
   deleteNegociacao,
 } from "@/lib/negociacoes.functions";
+import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -49,6 +57,7 @@ type FormState = {
   email: string;
   numero_funcionarios: string;
   observacao: string;
+  responsavel_id: string;
 };
 
 const FORM_VAZIO: FormState = {
@@ -57,6 +66,7 @@ const FORM_VAZIO: FormState = {
   email: "",
   numero_funcionarios: "",
   observacao: "",
+  responsavel_id: "",
 };
 
 function negociacaoParaForm(n: Negociacao): FormState {
@@ -66,11 +76,13 @@ function negociacaoParaForm(n: Negociacao): FormState {
     email: n.email ?? "",
     numero_funcionarios: n.numero_funcionarios != null ? String(n.numero_funcionarios) : "",
     observacao: n.observacao ?? "",
+    responsavel_id: n.responsavel_id ?? "",
   };
 }
 
 export function NegociacoesView() {
   const qc = useQueryClient();
+  const { membros } = useTasks();
   const listFn = useServerFn(listNegociacoes);
   const createFn = useServerFn(createNegociacao);
   const updateFn = useServerFn(updateNegociacao);
@@ -134,6 +146,7 @@ export function NegociacoesView() {
           ? Number(vars.numero_funcionarios)
           : undefined,
         observacao: vars.observacao.trim() || undefined,
+        responsavel_id: vars.responsavel_id || undefined,
       };
       if (vars.id) {
         await updateFn({ data: { id: vars.id, ...payload } });
@@ -167,7 +180,7 @@ export function NegociacoesView() {
   };
 
   return (
-    <div className="w-full space-y-6 bg-[var(--surface-1)] px-6 py-6">
+    <div className="w-full space-y-6 px-6 py-6">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Negociações</h1>
@@ -209,26 +222,27 @@ export function NegociacoesView() {
                 <TableHead className="text-muted-foreground">E-mail</TableHead>
                 <TableHead className="text-muted-foreground">Funcionários</TableHead>
                 <TableHead className="text-muted-foreground">Observação</TableHead>
+                <TableHead className="text-muted-foreground">Responsável</TableHead>
                 <TableHead className="pr-4 text-right text-muted-foreground"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={7} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : negociacoesFiltradas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     {negociacoes.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <Handshake className="h-8 w-8 text-muted-foreground" />
@@ -257,6 +271,9 @@ export function NegociacoesView() {
                     </TableCell>
                     <TableCell className="max-w-[240px] truncate" title={n.observacao ?? ""}>
                       {n.observacao || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {membros.find((m) => m.id === n.responsavel_id)?.nome ?? "—"}
                     </TableCell>
                     <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1">
@@ -371,6 +388,27 @@ export function NegociacoesView() {
                 onChange={(e) => setForm((f) => ({ ...f, numero_funcionarios: e.target.value }))}
                 disabled={viewOnly}
               />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Responsável</Label>
+              <Select
+                value={form.responsavel_id}
+                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                disabled={viewOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {membros.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                      {m.cargo ? ` (${m.cargo})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">

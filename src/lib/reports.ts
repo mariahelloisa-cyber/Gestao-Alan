@@ -3,8 +3,8 @@ import autoTable from "jspdf-autotable";
 import { statusCor, prioridadeCor, type Status, type Prioridade, type Tarefa } from "./mock-data";
 import { calcPrazos, prazoColors, PRAZO_LABELS, type PrazoBucket } from "./productivity";
 
-const STATUS_COLUNA = 4;
-const PRIORIDADE_COLUNA = 5;
+const STATUS_COLUNA = 3;
+const PRIORIDADE_COLUNA = 4;
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -14,7 +14,14 @@ function hexToRgb(hex: string): [number, number, number] {
 /** Desenha um donut (pizza com buraco branco no centro) igual ao card "Prazos" do dashboard. */
 function desenharDonutPrazos(
   doc: jsPDF,
-  opts: { cx: number; cy: number; outerR: number; innerR: number; segments: { color: string; value: number }[]; total: number },
+  opts: {
+    cx: number;
+    cy: number;
+    outerR: number;
+    innerR: number;
+    segments: { color: string; value: number }[];
+    total: number;
+  },
 ) {
   const { cx, cy, outerR, innerR, segments, total } = opts;
 
@@ -96,7 +103,6 @@ export interface RelatorioFiltrosLabel {
   periodo: string;
   membro: string;
   cliente: string;
-  projeto: string;
 }
 
 function formatarData(iso: string | null | undefined): string {
@@ -110,17 +116,22 @@ function formatarData(iso: string | null | undefined): string {
 // conhecidas de antemão (em vez de deixar o autoTable calcular sozinho)
 // para dar pra medir com precisão quantas linhas o título/responsáveis vão
 // quebrar antes de desenhar a tabela de verdade.
-const LARGURAS_COLUNAS = [80, 26, 26, 49, 28, 22, 19, 19] as const;
+const LARGURAS_COLUNAS = [80, 26, 49, 28, 22, 19, 19] as const;
 
 /** Altura total (mm) que a tabela vai ocupar, medindo a quebra de linha real do jsPDF. */
-function medirAlturaTabela(doc: jsPDF, tarefas: Tarefa[], fontSize: number, cellPadding: number): number {
+function medirAlturaTabela(
+  doc: jsPDF,
+  tarefas: Tarefa[],
+  fontSize: number,
+  cellPadding: number,
+): number {
   const lineHeightFactor = doc.getLineHeightFactor();
   const lineHeight = (fontSize / doc.internal.scaleFactor) * lineHeightFactor;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(fontSize);
 
   const largTitulo = LARGURAS_COLUNAS[0] - cellPadding * 2;
-  const largResp = LARGURAS_COLUNAS[3] - cellPadding * 2;
+  const largResp = LARGURAS_COLUNAS[2] - cellPadding * 2;
 
   let altura = lineHeight + cellPadding * 2; // cabeçalho
   for (const t of tarefas) {
@@ -154,7 +165,6 @@ export function gerarRelatorioTarefasPDF(
   tarefas: Tarefa[],
   filtros: RelatorioFiltrosLabel,
   clientesById: Map<string, string>,
-  projetosById: Map<string, string>,
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
 
@@ -164,7 +174,7 @@ export function gerarRelatorioTarefasPDF(
   doc.setFontSize(9);
   doc.setTextColor(100);
   const infoLinhas = [
-    `Período: ${filtros.periodo}    Membro: ${filtros.membro}    Cliente: ${filtros.cliente}    Projeto: ${filtros.projeto}`,
+    `Período: ${filtros.periodo}    Membro: ${filtros.membro}    Cliente: ${filtros.cliente}`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}    Total de tarefas: ${tarefas.length}`,
   ];
   doc.text(infoLinhas, 14, 24);
@@ -184,18 +194,21 @@ export function gerarRelatorioTarefasPDF(
   const MARGEM_INFERIOR = 10;
   const alturaDisponivelTabela = pageHeight - startY - RESERVADO_PRAZOS - MARGEM_INFERIOR;
 
-  const { fontSize, cellPadding, coube } = ajustarTamanhoTabela(doc, tarefas, alturaDisponivelTabela);
+  const { fontSize, cellPadding, coube } = ajustarTamanhoTabela(
+    doc,
+    tarefas,
+    alturaDisponivelTabela,
+  );
   const pillFontSize = Math.max(5, Math.round(fontSize * 0.875 * 10) / 10);
   const pillH = Math.max(3.4, Math.round(fontSize * 0.575 * 10) / 10);
   const pillPadX = Math.max(1.2, Math.round(fontSize * 0.275 * 10) / 10);
 
   autoTable(doc, {
     startY,
-    head: [["Título", "Cliente", "Projeto", "Responsáveis", "Status", "Prioridade", "Prazo", "Concluído em"]],
+    head: [["Título", "Cliente", "Responsáveis", "Status", "Prioridade", "Prazo", "Concluído em"]],
     body: tarefas.map((t) => [
       t.titulo,
       t.cliente_id ? (clientesById.get(t.cliente_id) ?? "—") : "—",
-      t.projeto_id ? (projetosById.get(t.projeto_id) ?? "—") : "—",
       t.responsaveis.map((r) => r.nome).join(", ") || "—",
       t.status,
       t.prioridade,
@@ -213,11 +226,10 @@ export function gerarRelatorioTarefasPDF(
       0: { cellWidth: LARGURAS_COLUNAS[0] },
       1: { cellWidth: LARGURAS_COLUNAS[1] },
       2: { cellWidth: LARGURAS_COLUNAS[2] },
-      3: { cellWidth: LARGURAS_COLUNAS[3] },
-      [STATUS_COLUNA]: { cellWidth: LARGURAS_COLUNAS[4] },
-      [PRIORIDADE_COLUNA]: { cellWidth: LARGURAS_COLUNAS[5] },
+      [STATUS_COLUNA]: { cellWidth: LARGURAS_COLUNAS[3] },
+      [PRIORIDADE_COLUNA]: { cellWidth: LARGURAS_COLUNAS[4] },
+      5: { cellWidth: LARGURAS_COLUNAS[5] },
       6: { cellWidth: LARGURAS_COLUNAS[6] },
-      7: { cellWidth: LARGURAS_COLUNAS[7] },
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
@@ -299,7 +311,12 @@ export function gerarRelatorioTarefasPDF(
     doc,
     donutCx + 34,
     y + 15,
-    buckets.map((b) => ({ color: prazoColors[b], label: PRAZO_LABELS[b], count: prazos.counts[b], pct: prazos.pct[b] })),
+    buckets.map((b) => ({
+      color: prazoColors[b],
+      label: PRAZO_LABELS[b],
+      count: prazos.counts[b],
+      pct: prazos.pct[b],
+    })),
   );
 
   const nomeArquivo = `relatorio-tarefas-${new Date().toISOString().slice(0, 10)}.pdf`;

@@ -12,7 +12,7 @@ export const listPolos = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("polos_ativacao")
       .select(
-        "id, nivel, nome, contato, email, produto, data_ativacao, valor_ativacao, situacao, data_saida, motivo_saida, observacao, criado_em",
+        "id, nivel, nome, contato, email, produto, data_ativacao, valor_ativacao, situacao, data_saida, motivo_saida, observacao, criado_em, atualizado_em, responsavel_id, reativado_por",
       )
       .order("criado_em", { ascending: false });
     if (error) throw new Error(error.message);
@@ -31,6 +31,8 @@ const poloFields = {
   data_saida: z.string().optional(),
   motivo_saida: z.string().trim().max(2000).optional(),
   observacao: z.string().trim().max(5000).optional(),
+  responsavel_id: z.string().uuid().optional(),
+  reativado_por: z.string().uuid().optional(),
 };
 
 const createPoloSchema = z.object(poloFields);
@@ -54,6 +56,8 @@ export const createPolo = createServerFn({ method: "POST" })
         data_saida: data.data_saida || null,
         motivo_saida: data.motivo_saida || null,
         observacao: data.observacao || null,
+        responsavel_id: data.responsavel_id || null,
+        reativado_por: data.reativado_por || null,
         criado_por: userId,
       })
       .select("id")
@@ -86,6 +90,8 @@ export const updatePolo = createServerFn({ method: "POST" })
         data_saida: data.data_saida || null,
         motivo_saida: data.motivo_saida || null,
         observacao: data.observacao || null,
+        responsavel_id: data.responsavel_id || null,
+        reativado_por: data.reativado_por || null,
         atualizado_em: new Date().toISOString(),
       })
       .eq("id", data.id);

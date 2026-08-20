@@ -5,7 +5,13 @@ import { PERIODO_PRESETS, resolverPeriodo, type PeriodoPreset } from "@/lib/prod
 import { gerarRelatorioTarefasPDF } from "@/lib/reports";
 import { PeriodFilter } from "./PeriodFilter";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -17,23 +23,27 @@ import {
 const TODOS = "todos";
 
 export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
-  const { tarefas, membros, clientes, projetos, myId, myNome } = useTasks();
+  const { tarefas, membros, clientes, myId, myNome } = useTasks();
   const [open, setOpen] = useState(false);
   const [preset, setPreset] = useState<PeriodoPreset>("30d");
   const [customDe, setCustomDe] = useState("");
   const [customAte, setCustomAte] = useState("");
   const [membroId, setMembroId] = useState(TODOS);
   const [clienteId, setClienteId] = useState(TODOS);
-  const [projetoId, setProjetoId] = useState(TODOS);
 
   const periodo = useMemo(
     () => resolverPeriodo(preset, { de: customDe, ate: customAte }),
     [preset, customDe, customAte],
   );
 
-  const membrosOrdenados = useMemo(() => [...membros].sort((a, b) => a.nome.localeCompare(b.nome)), [membros]);
-  const clientesOrdenados = useMemo(() => [...clientes].sort((a, b) => a.nome_empresa.localeCompare(b.nome_empresa)), [clientes]);
-  const projetosOrdenados = useMemo(() => [...projetos].sort((a, b) => a.nome.localeCompare(b.nome)), [projetos]);
+  const membrosOrdenados = useMemo(
+    () => [...membros].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [membros],
+  );
+  const clientesOrdenados = useMemo(
+    () => [...clientes].sort((a, b) => a.nome_empresa.localeCompare(b.nome_empresa)),
+    [clientes],
+  );
 
   const efetivoMembroId = apenasMinhas ? myId : membroId;
 
@@ -41,34 +51,34 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
     const semPeriodo = preset === "todos";
     return tarefas.filter((t) => {
       if ((t.tipo ?? "tarefa") !== "tarefa") return false;
-      if (efetivoMembroId !== TODOS && !t.responsaveis.some((r) => r.id === efetivoMembroId)) return false;
+      if (efetivoMembroId !== TODOS && !t.responsaveis.some((r) => r.id === efetivoMembroId))
+        return false;
       if (clienteId !== TODOS && t.cliente_id !== clienteId) return false;
-      if (projetoId !== TODOS && t.projeto_id !== projetoId) return false;
       if (!semPeriodo) {
         const ref = t.concluido_em ? t.concluido_em.slice(0, 10) : t.data_vencimento || null;
         if (!ref || ref < periodo.de || ref > periodo.ate) return false;
       }
       return true;
     });
-  }, [tarefas, efetivoMembroId, clienteId, projetoId, preset, periodo]);
+  }, [tarefas, efetivoMembroId, clienteId, preset, periodo]);
 
   const baixar = () => {
     const clientesById = new Map(clientes.map((c) => [c.id, c.nome_empresa]));
-    const projetosById = new Map(projetos.map((p) => [p.id, p.nome]));
     const membroLabel = apenasMinhas
       ? myNome || "Você"
       : membroId === TODOS
         ? "Todos"
         : (membrosOrdenados.find((m) => m.id === membroId)?.nome ?? "Todos");
-    const clienteLabel = clienteId === TODOS ? "Todos" : (clientesOrdenados.find((c) => c.id === clienteId)?.nome_empresa ?? "Todos");
-    const projetoLabel = projetoId === TODOS ? "Todos" : (projetosOrdenados.find((p) => p.id === projetoId)?.nome ?? "Todos");
+    const clienteLabel =
+      clienteId === TODOS
+        ? "Todos"
+        : (clientesOrdenados.find((c) => c.id === clienteId)?.nome_empresa ?? "Todos");
     const periodoLabel = PERIODO_PRESETS.find((p) => p.value === preset)?.label ?? "Período";
 
     gerarRelatorioTarefasPDF(
       filtradas,
-      { periodo: periodoLabel, membro: membroLabel, cliente: clienteLabel, projeto: projetoLabel },
+      { periodo: periodoLabel, membro: membroLabel, cliente: clienteLabel },
       clientesById,
-      projetosById,
     );
     setOpen(false);
   };
@@ -136,30 +146,16 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Projeto</label>
-              <Select value={projetoId} onValueChange={setProjetoId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={TODOS}>Todos os projetos</SelectItem>
-                  {projetosOrdenados.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <p className="text-xs text-muted-foreground">
-              {filtradas.length} tarefa{filtradas.length === 1 ? "" : "s"} encontrada{filtradas.length === 1 ? "" : "s"} com esses filtros.
+              {filtradas.length} tarefa{filtradas.length === 1 ? "" : "s"} encontrada
+              {filtradas.length === 1 ? "" : "s"} com esses filtros.
             </p>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
             <Button onClick={baixar} disabled={filtradas.length === 0}>
               <FileDown className="mr-1.5 h-4 w-4" />
               Baixar PDF

@@ -44,6 +44,7 @@ export type WorkspaceView =
   | { tipo: "dashboard" }
   | { tipo: "ativacao" }
   | { tipo: "reativacao" }
+  | { tipo: "acompanhamento" }
   | { tipo: "negociacoes" }
   | { tipo: "escolas-tecnicas" }
   | { tipo: "todos-clientes" }
@@ -514,17 +515,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const contarGeraisPorStatus = useCallback(
     (s: Status) => {
-      const adminIds = new Set(membros.filter((m) => m.cargo === "Admin").map((m) => m.id));
+      const souAdminLike = myCargo === "Admin" || myCargo === "Supervisor";
+      const meId = data?.me?.id;
       return tarefas.filter(
         (t) =>
           (t.tipo ?? "tarefa") === "tarefa" &&
           t.status === s &&
-          !t.responsaveis.some((r) => adminIds.has(r.id)) &&
+          (souAdminLike || t.responsaveis.some((r) => r.id === meId)) &&
           (geralEmpresaFilter === "todas" || t.cliente_id === geralEmpresaFilter) &&
           (geralMembroFilter === "todos" || t.responsaveis.some((r) => r.id === geralMembroFilter)),
       ).length;
     },
-    [tarefas, membros, geralEmpresaFilter, geralMembroFilter],
+    [tarefas, myCargo, data?.me?.id, geralEmpresaFilter, geralMembroFilter],
   );
 
   const clientesAtivos = useCallback(() => {

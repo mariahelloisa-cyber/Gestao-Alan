@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { listPolos, createPolo, updatePolo, deletePolo } from "@/lib/polos.functions";
+import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,6 +71,8 @@ type FormState = {
   valor_ativacao: string;
   situacao: Situacao;
   observacao: string;
+  responsavel_id: string;
+  reativado_por: string;
 };
 
 const FORM_VAZIO: FormState = {
@@ -82,6 +85,8 @@ const FORM_VAZIO: FormState = {
   valor_ativacao: "",
   situacao: "ativo",
   observacao: "",
+  responsavel_id: "",
+  reativado_por: "",
 };
 
 function poloParaForm(p: Polo): FormState {
@@ -95,6 +100,10 @@ function poloParaForm(p: Polo): FormState {
     valor_ativacao: p.valor_ativacao != null ? String(p.valor_ativacao) : "",
     situacao: p.situacao as Situacao,
     observacao: p.observacao ?? "",
+    responsavel_id: p.responsavel_id ?? "",
+    // Carregado sem exibir no formulário — só preserva quem reativou por
+    // último ao salvar edições gerais do polo (ver salvarMut).
+    reativado_por: p.reativado_por ?? "",
   };
 }
 
@@ -128,6 +137,7 @@ const NIVEL_BADGE: Record<Nivel, string> = {
 
 export function AtivacaoView() {
   const qc = useQueryClient();
+  const { membros } = useTasks();
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
@@ -240,6 +250,8 @@ export function AtivacaoView() {
         valor_ativacao: vars.valor_ativacao ? Number(vars.valor_ativacao) : undefined,
         situacao: vars.situacao,
         observacao: vars.observacao.trim() || undefined,
+        responsavel_id: vars.responsavel_id || undefined,
+        reativado_por: vars.reativado_por || undefined,
       };
       if (vars.id) {
         await updateFn({ data: { id: vars.id, ...payload } });
@@ -281,6 +293,8 @@ export function AtivacaoView() {
           data_saida: inativarData,
           motivo_saida: inativarMotivo.trim(),
           observacao: inativarAlvo.observacao || undefined,
+          responsavel_id: inativarAlvo.responsavel_id || undefined,
+          reativado_por: inativarAlvo.reativado_por || undefined,
         },
       });
     },
@@ -317,7 +331,7 @@ export function AtivacaoView() {
   const valorTotal = polosAtivos.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0);
 
   return (
-    <div className="w-full space-y-6 bg-[var(--surface-1)] px-6 py-6">
+    <div className="w-full space-y-6 px-6 py-6">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -456,26 +470,27 @@ export function AtivacaoView() {
                 <TableHead className="text-muted-foreground">Produto</TableHead>
                 <TableHead className="text-muted-foreground">Ativação</TableHead>
                 <TableHead className="text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-muted-foreground">Responsável</TableHead>
                 <TableHead className="pr-4 text-right text-muted-foreground"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={8} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : polosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     {polosAtivos.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <Building2 className="h-8 w-8 text-muted-foreground" />
@@ -504,6 +519,9 @@ export function AtivacaoView() {
                     </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
                     <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
+                    <TableCell>
+                      {membros.find((m) => m.id === p.responsavel_id)?.nome ?? "—"}
+                    </TableCell>
                     <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1">
                         <Button
@@ -676,6 +694,27 @@ export function AtivacaoView() {
                 <SelectContent>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="reativado">Reativado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Responsável</Label>
+              <Select
+                value={form.responsavel_id}
+                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                disabled={viewOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {membros.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                      {m.cargo ? ` (${m.cargo})` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

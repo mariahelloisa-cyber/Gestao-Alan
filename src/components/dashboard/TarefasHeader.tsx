@@ -41,6 +41,7 @@ export function TarefasHeader({
     tarefas,
     membros,
     myId,
+    myCargo,
     myNome,
     myEmail,
     myAvatar,
@@ -73,21 +74,18 @@ export function TarefasHeader({
     [tarefas, myId],
   );
 
-  const adminIds = useMemo(
-    () => new Set(membros.filter((m) => m.cargo === "Admin").map((m) => m.id)),
-    [membros],
-  );
+  const podeVerTudo = myCargo === "Admin" || myCargo === "Supervisor";
 
   const totalGerais = useMemo(
     () =>
       tarefas.filter(
         (t) =>
           (t.tipo ?? "tarefa") === "tarefa" &&
-          !t.responsaveis.some((r) => adminIds.has(r.id)) &&
+          (podeVerTudo || t.responsaveis.some((r) => r.id === myId)) &&
           (geralEmpresaFilter === "todas" || t.cliente_id === geralEmpresaFilter) &&
           (geralMembroFilter === "todos" || t.responsaveis.some((r) => r.id === geralMembroFilter)),
       ).length,
-    [tarefas, adminIds, geralEmpresaFilter, geralMembroFilter],
+    [tarefas, podeVerTudo, myId, geralEmpresaFilter, geralMembroFilter],
   );
 
   return (

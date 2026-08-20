@@ -8,7 +8,9 @@ export const listNegociacoes = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("negociacoes")
-      .select("id, nome, contato, email, observacao, numero_funcionarios, criado_em")
+      .select(
+        "id, nome, contato, email, observacao, numero_funcionarios, responsavel_id, criado_em",
+      )
       .order("criado_em", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -20,6 +22,7 @@ const negociacaoFields = {
   email: z.string().trim().email().max(255).optional().or(z.literal("")),
   observacao: z.string().trim().max(5000).optional(),
   numero_funcionarios: z.number().int().min(0).max(1_000_000).optional(),
+  responsavel_id: z.string().uuid().optional(),
 };
 
 const createNegociacaoSchema = z.object(negociacaoFields);
@@ -37,6 +40,7 @@ export const createNegociacao = createServerFn({ method: "POST" })
         email: data.email || null,
         observacao: data.observacao || null,
         numero_funcionarios: data.numero_funcionarios ?? null,
+        responsavel_id: data.responsavel_id || null,
         criado_por: userId,
       })
       .select("id")
@@ -63,6 +67,7 @@ export const updateNegociacao = createServerFn({ method: "POST" })
         email: data.email || null,
         observacao: data.observacao || null,
         numero_funcionarios: data.numero_funcionarios ?? null,
+        responsavel_id: data.responsavel_id || null,
         atualizado_em: new Date().toISOString(),
       })
       .eq("id", data.id);

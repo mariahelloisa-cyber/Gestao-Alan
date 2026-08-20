@@ -8,7 +8,9 @@ export const listEscolasTecnicas = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("escolas_tecnicas")
-      .select("id, nome, contato, email, estado, cidade, cursos, observacao, criado_em")
+      .select(
+        "id, nome, contato, email, estado, cidade, cursos, observacao, responsavel_id, criado_em",
+      )
       .order("criado_em", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -22,6 +24,7 @@ const escolaTecnicaFields = {
   cidade: z.string().trim().max(100).optional(),
   cursos: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
   observacao: z.string().trim().max(5000).optional(),
+  responsavel_id: z.string().uuid().optional(),
 };
 
 const createEscolaTecnicaSchema = z.object(escolaTecnicaFields);
@@ -41,6 +44,7 @@ export const createEscolaTecnica = createServerFn({ method: "POST" })
         cidade: data.cidade || null,
         cursos: data.cursos ?? [],
         observacao: data.observacao || null,
+        responsavel_id: data.responsavel_id || null,
         criado_por: userId,
       })
       .select("id")
@@ -69,6 +73,7 @@ export const updateEscolaTecnica = createServerFn({ method: "POST" })
         cidade: data.cidade || null,
         cursos: data.cursos ?? [],
         observacao: data.observacao || null,
+        responsavel_id: data.responsavel_id || null,
         atualizado_em: new Date().toISOString(),
       })
       .eq("id", data.id);

@@ -33,6 +33,51 @@ export type Database = {
   };
   public: {
     Tables: {
+      acompanhamentos: {
+        Row: {
+          atualizado_em: string;
+          contato: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          destino: Database["public"]["Enums"]["acompanhamento_destino"];
+          email: string | null;
+          etapa: Database["public"]["Enums"]["acompanhamento_etapa"];
+          id: string;
+          nome: string;
+          observacao: string | null;
+          origem_id: string | null;
+          origem_tipo: Database["public"]["Enums"]["acompanhamento_origem"] | null;
+        };
+        Insert: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          destino: Database["public"]["Enums"]["acompanhamento_destino"];
+          email?: string | null;
+          etapa?: Database["public"]["Enums"]["acompanhamento_etapa"];
+          id?: string;
+          nome: string;
+          observacao?: string | null;
+          origem_id?: string | null;
+          origem_tipo?: Database["public"]["Enums"]["acompanhamento_origem"] | null;
+        };
+        Update: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          destino?: Database["public"]["Enums"]["acompanhamento_destino"];
+          email?: string | null;
+          etapa?: Database["public"]["Enums"]["acompanhamento_etapa"];
+          id?: string;
+          nome?: string;
+          observacao?: string | null;
+          origem_id?: string | null;
+          origem_tipo?: Database["public"]["Enums"]["acompanhamento_origem"] | null;
+        };
+        Relationships: [];
+      };
       clientes: {
         Row: {
           contrato_url: string | null;
@@ -459,6 +504,8 @@ export type Database = {
           nome: string;
           observacao: string | null;
           produto: string | null;
+          reativado_por: string | null;
+          responsavel_id: string | null;
           situacao: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao: number | null;
         };
@@ -476,6 +523,8 @@ export type Database = {
           nome: string;
           observacao?: string | null;
           produto?: string | null;
+          reativado_por?: string | null;
+          responsavel_id?: string | null;
           situacao?: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao?: number | null;
         };
@@ -493,6 +542,8 @@ export type Database = {
           nome?: string;
           observacao?: string | null;
           produto?: string | null;
+          reativado_por?: string | null;
+          responsavel_id?: string | null;
           situacao?: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao?: number | null;
         };
@@ -511,6 +562,7 @@ export type Database = {
           id: string;
           nome: string;
           observacao: string | null;
+          responsavel_id: string | null;
         };
         Insert: {
           atualizado_em?: string;
@@ -524,6 +576,7 @@ export type Database = {
           id?: string;
           nome: string;
           observacao?: string | null;
+          responsavel_id?: string | null;
         };
         Update: {
           atualizado_em?: string;
@@ -537,6 +590,7 @@ export type Database = {
           id?: string;
           nome?: string;
           observacao?: string | null;
+          responsavel_id?: string | null;
         };
         Relationships: [];
       };
@@ -551,6 +605,7 @@ export type Database = {
           nome: string;
           numero_funcionarios: number | null;
           observacao: string | null;
+          responsavel_id: string | null;
         };
         Insert: {
           atualizado_em?: string;
@@ -562,6 +617,7 @@ export type Database = {
           nome: string;
           numero_funcionarios?: number | null;
           observacao?: string | null;
+          responsavel_id?: string | null;
         };
         Update: {
           atualizado_em?: string;
@@ -573,6 +629,7 @@ export type Database = {
           nome?: string;
           numero_funcionarios?: number | null;
           observacao?: string | null;
+          responsavel_id?: string | null;
         };
         Relationships: [];
       };
@@ -796,6 +853,14 @@ export type Database = {
       tem_perfil: { Args: { _user_id: string }; Returns: boolean };
     };
     Enums: {
+      acompanhamento_destino: "ativacao" | "negociacoes" | "escola_tecnica";
+      acompanhamento_etapa:
+        | "mapeamento"
+        | "primeiro_contato"
+        | "qualificacao"
+        | "reuniao"
+        | "proposta_comercial";
+      acompanhamento_origem: "polo" | "negociacao" | "escola_tecnica";
       cargo_usuario: "Admin" | "Membro" | "Cliente" | "Supervisor";
       complexidade_tarefa: "Fácil" | "Média" | "Difícil";
       escopo_item: "geral" | "pessoal";
@@ -934,6 +999,15 @@ export const Constants = {
   },
   public: {
     Enums: {
+      acompanhamento_destino: ["ativacao", "negociacoes", "escola_tecnica"],
+      acompanhamento_etapa: [
+        "mapeamento",
+        "primeiro_contato",
+        "qualificacao",
+        "reuniao",
+        "proposta_comercial",
+      ],
+      acompanhamento_origem: ["polo", "negociacao", "escola_tecnica"],
       cargo_usuario: ["Admin", "Membro", "Cliente", "Supervisor"],
       complexidade_tarefa: ["Fácil", "Média", "Difícil"],
       escopo_item: ["geral", "pessoal"],

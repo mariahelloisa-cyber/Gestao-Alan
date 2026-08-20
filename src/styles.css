@@ -99,15 +99,15 @@
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
 
-  /* Sidebar principal — branca no modo claro */
-  --sidebar: #ffffff;
-  --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.15 0 0);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.15 0 0);
+  /* Sidebar principal — preta no modo claro */
+  --sidebar: oklch(0.15 0 0);
+  --sidebar-foreground: oklch(0.98 0.005 285);
+  --sidebar-primary: oklch(1 0 0);
+  --sidebar-primary-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(1 0 0);
 
   /* Superfícies claras */
   --surface-1: #f6f7fb;
@@ -141,14 +141,15 @@
   --chart-4: oklch(0.82 0.18 80);
   --chart-5: oklch(0.75 0.2 20);
 
-  --sidebar: #07070d;
-  --sidebar-foreground: oklch(0.98 0.005 285);
-  --sidebar-primary: oklch(0.95 0 0);
-  --sidebar-primary-foreground: oklch(0.1 0 0);
-  --sidebar-accent: #1f1f2e;
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.95 0 0);
+  /* Sidebar principal — branca no modo escuro */
+  --sidebar: #ffffff;
+  --sidebar-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-primary: oklch(0.15 0 0);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.15 0 0);
 
   --surface-1: #0f0f1a;
   --surface-2: #14141f;
@@ -228,4 +229,27 @@
   --surface-1: #0f0f1a;
   --surface-2: #14141f;
   background-color: #0a0a14;
+}
+
+/* Logo da marca em baixa opacidade atrás do conteúdo das páginas internas. */
+.workspace-watermark {
+  position: relative;
+  isolation: isolate;
+}
+.workspace-watermark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("./assets/brasil.avif");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(78%, 640px);
+  opacity: 0.11;
+  pointer-events: none;
+}
+.dark .workspace-watermark::before {
+  background-image: url("./assets/brasilclaro.png");
+  background-size: min(100%, 820px);
+  opacity: 0.1;
 }

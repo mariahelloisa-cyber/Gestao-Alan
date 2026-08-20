@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PrimarySidebar } from "@/components/layout/PrimarySidebar";
-import { SecondarySidebar } from "@/components/layout/SecondarySidebar";
 import { TarefasHeader } from "@/components/dashboard/TarefasHeader";
 import { KanbanView, AddTaskDialog } from "@/components/dashboard/KanbanView";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { TasksProvider, useTasks } from "@/lib/tasks-store";
 import { TaskDetailDialog } from "@/components/dashboard/TaskDetailDialog";
 import { MembersView } from "@/components/dashboard/MembersView";
+import { AcompanhamentoView } from "@/components/dashboard/AcompanhamentoView";
 import { AtivacaoView } from "@/components/dashboard/AtivacaoView";
 import { ReativacaoView } from "@/components/dashboard/ReativacaoView";
 import { NegociacoesView } from "@/components/dashboard/NegociacoesView";
@@ -33,7 +33,6 @@ function Index() {
     <TasksProvider>
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <PrimarySidebar />
-        <SecondarySidebar />
         <main className="flex flex-1 flex-col overflow-hidden">
           <WorkspaceContent />
         </main>
@@ -50,7 +49,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "dashboard") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <DashboardView apenasMinhas={!isAdminLike} />
       </div>
     );
@@ -62,7 +61,7 @@ function WorkspaceContent() {
         <TarefasHeader view={mainView} onViewChange={setMainView} />
         <div
           key={mainView}
-          className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] duration-200"
+          className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] workspace-watermark duration-200"
         >
           {mainView === "Quadro" && <KanbanView />}
           {mainView === "Calendário" && <CalendarView scope="pessoal" />}
@@ -93,7 +92,7 @@ function WorkspaceContent() {
         />
         <div
           key={mainView}
-          className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] duration-200"
+          className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] workspace-watermark duration-200"
         >
           {mainView === "Quadro" && <KanbanView semCliente />}
           {mainView === "Calendário" && <CalendarView scope="sem-cliente" />}
@@ -102,9 +101,13 @@ function WorkspaceContent() {
     );
   }
 
+  if (workspace.tipo === "acompanhamento") {
+    return <AcompanhamentoView />;
+  }
+
   if (workspace.tipo === "ativacao") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <AtivacaoView />
       </div>
     );
@@ -112,7 +115,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "reativacao") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <ReativacaoView />
       </div>
     );
@@ -120,7 +123,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "negociacoes") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <NegociacoesView />
       </div>
     );
@@ -128,7 +131,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "escolas-tecnicas") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <EscolasTecnicasView />
       </div>
     );
@@ -136,7 +139,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "membros") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <MembersView />
       </div>
     );
@@ -144,7 +147,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "links") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <LinksView />
       </div>
     );
@@ -152,7 +155,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "finalizados") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <FinalizadosView />
       </div>
     );
@@ -163,7 +166,7 @@ function WorkspaceContent() {
       <TarefasHeader view={mainView} onViewChange={setMainView} />
       <div
         key={mainView}
-        className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] duration-200"
+        className="flex-1 animate-in fade-in-50 overflow-y-auto bg-[var(--surface-1)] workspace-watermark duration-200"
       >
         {mainView === "Quadro" && <KanbanView />}
         {mainView === "Calendário" && <CalendarView scope="pessoal" />}

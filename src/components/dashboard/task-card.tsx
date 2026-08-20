@@ -12,6 +12,7 @@ import {
 import {
   prioridadeCor,
   complexidadeCor,
+  statusCor,
   rotuloData,
   type Complexidade,
   type Prioridade,
@@ -125,6 +126,7 @@ export function TaskCard({
   const prioCor = prioridadeCor[tarefa.prioridade];
   const ComplexIcon = complexidadeIcon[tarefa.complexidade];
   const complexCor = complexidadeCor[tarefa.complexidade];
+  const statusCorAtual = statusCor[tarefa.status];
 
   return (
     <div
@@ -133,10 +135,11 @@ export function TaskCard({
       onDragEnd={draggable ? onDragEnd : undefined}
       onClick={onClick}
       className={cn(
-        "task-surface group shrink-0 overflow-hidden rounded-md border border-border p-3 shadow-sm transition-shadow hover:shadow-md",
+        "task-surface group shrink-0 overflow-hidden rounded-md border-2 p-3 shadow-sm transition-shadow hover:shadow-md",
         draggable && "cursor-grab active:cursor-grabbing",
         onClick && "cursor-pointer",
       )}
+      style={{ borderColor: `color-mix(in oklab, ${statusCorAtual} 55%, transparent)` }}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span

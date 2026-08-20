@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import type { Projeto } from "@/lib/tasks-store";
 import { calcularProdutividade, calcPrazos, prazoColors, type Periodo } from "@/lib/productivity";
 import type { Status } from "@/lib/mock-data";
 
@@ -16,7 +15,7 @@ export function calcStatus(list: TarefaStatusLike[]) {
     Pendente: list.filter((t) => t.status === "Pendente").length,
     "Em Progresso": list.filter((t) => t.status === "Em Progresso").length,
     "Em Análise": list.filter((t) => t.status === "Em Análise").length,
-    "Concluído": list.filter((t) => t.status === "Concluído").length,
+    Concluído: list.filter((t) => t.status === "Concluído").length,
   };
   return {
     total: list.length,
@@ -25,7 +24,7 @@ export function calcStatus(list: TarefaStatusLike[]) {
       Pendente: Math.round((counts.Pendente / total) * 100),
       "Em Progresso": Math.round((counts["Em Progresso"] / total) * 100),
       "Em Análise": Math.round((counts["Em Análise"] / total) * 100),
-      "Concluído": Math.round((counts["Concluído"] / total) * 100),
+      Concluído: Math.round((counts["Concluído"] / total) * 100),
     },
   };
 }
@@ -34,33 +33,13 @@ export const statusColors: Record<Status, string> = {
   Pendente: "#F59E0B",
   "Em Progresso": "#3B82F6",
   "Em Análise": "#A855F7",
-  "Concluído": "#22C55E",
+  Concluído: "#22C55E",
 };
 
-export interface ProjetoContagem {
+export interface BarRow {
   id: string;
   nome: string;
   total: number;
-}
-
-interface TarefaProjetoLike {
-  projeto_id?: string | null;
-}
-
-export function contarTarefasPorProjeto(list: TarefaProjetoLike[], projetos: Projeto[]): ProjetoContagem[] {
-  const porId = new Map<string, number>();
-  let semProjeto = 0;
-  for (const t of list) {
-    if (t.projeto_id) porId.set(t.projeto_id, (porId.get(t.projeto_id) ?? 0) + 1);
-    else semProjeto++;
-  }
-  const linhas: ProjetoContagem[] = projetos.map((p) => ({
-    id: p.id,
-    nome: p.nome,
-    total: porId.get(p.id) ?? 0,
-  }));
-  if (semProjeto > 0) linhas.push({ id: "__sem_projeto__", nome: "Sem projeto", total: semProjeto });
-  return linhas.sort((a, b) => b.total - a.total);
 }
 
 /** Arredonda para cima até um número "redondo" (1/2/5 x 10^n), pra servir de eixo do gráfico. */
@@ -99,7 +78,11 @@ export function MemberProductivityBlock({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatTile label="Atribuídas no período" value={String(metricas.atribuidas)} />
-        <StatTile label="Concluídas no período" value={String(metricas.concluidas)} accent={statusColors["Concluído"]} />
+        <StatTile
+          label="Concluídas no período"
+          value={String(metricas.concluidas)}
+          accent={statusColors["Concluído"]}
+        />
         <StatTile
           label="Taxa de conclusão"
           value={`${metricas.taxaConclusao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
@@ -113,7 +96,15 @@ export function MemberProductivityBlock({
   );
 }
 
-export function StatTile({ label, value, accent }: { label: string; value: string; accent?: string }) {
+export function StatTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card/80 p-4 shadow-sm">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -127,7 +118,15 @@ export function StatTile({ label, value, accent }: { label: string; value: strin
   );
 }
 
-export function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+export function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
   return (
     <section>
       <div className="mb-3">
@@ -148,7 +147,15 @@ export function Card({ title, children }: { title: string; children: React.React
   );
 }
 
-export function Donut({ segments, total, label }: { segments: { color: string; value: number }[]; total: number; label: string }) {
+export function Donut({
+  segments,
+  total,
+  label,
+}: {
+  segments: { color: string; value: number }[];
+  total: number;
+  label: string;
+}) {
   const size = 170;
   const stroke = 22;
   const r = (size - stroke) / 2;
@@ -159,7 +166,14 @@ export function Donut({ segments, total, label }: { segments: { color: string; v
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={stroke}
+        />
         {total > 0 &&
           visible.map((s, i) => {
             const len = Math.max((s.value / total) * c - gap, 0);
@@ -183,13 +197,19 @@ export function Donut({ segments, total, label }: { segments: { color: string; v
       </svg>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-semibold tracking-tight text-foreground">{total}</span>
-        <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </span>
       </div>
     </div>
   );
 }
 
-export function Legend({ rows }: { rows: { color: string; label: string; count: number; pct: number }[] }) {
+export function Legend({
+  rows,
+}: {
+  rows: { color: string; label: string; count: number; pct: number }[];
+}) {
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
       {rows.map((r) => (
@@ -227,10 +247,30 @@ export function ProgressoCard({ data }: { data: ReturnType<typeof calcStatus> })
         />
         <Legend
           rows={[
-            { color: statusColors["Concluído"], label: "Concluído", count: data.counts["Concluído"], pct: data.pct["Concluído"] },
-            { color: statusColors["Em Análise"], label: "Em Análise", count: data.counts["Em Análise"], pct: data.pct["Em Análise"] },
-            { color: statusColors["Em Progresso"], label: "Em Progresso", count: data.counts["Em Progresso"], pct: data.pct["Em Progresso"] },
-            { color: statusColors.Pendente, label: "Pendente", count: data.counts.Pendente, pct: data.pct.Pendente },
+            {
+              color: statusColors["Concluído"],
+              label: "Concluído",
+              count: data.counts["Concluído"],
+              pct: data.pct["Concluído"],
+            },
+            {
+              color: statusColors["Em Análise"],
+              label: "Em Análise",
+              count: data.counts["Em Análise"],
+              pct: data.pct["Em Análise"],
+            },
+            {
+              color: statusColors["Em Progresso"],
+              label: "Em Progresso",
+              count: data.counts["Em Progresso"],
+              pct: data.pct["Em Progresso"],
+            },
+            {
+              color: statusColors.Pendente,
+              label: "Pendente",
+              count: data.counts.Pendente,
+              pct: data.pct.Pendente,
+            },
           ]}
         />
       </div>
@@ -238,7 +278,13 @@ export function ProgressoCard({ data }: { data: ReturnType<typeof calcStatus> })
   );
 }
 
-export function ProjetosBarChart({ rows }: { rows: ProjetoContagem[] }) {
+export function HorizontalBarChart({
+  rows,
+  formatValue = (v) => String(v),
+}: {
+  rows: BarRow[];
+  formatValue?: (v: number) => string;
+}) {
   const maiorValor = Math.max(1, ...rows.map((r) => r.total));
   const teto = tetoAmigavel(maiorValor);
   const marcas = 4;
@@ -264,10 +310,10 @@ export function ProjetosBarChart({ rows }: { rows: ProjetoContagem[] }) {
                       background: "linear-gradient(90deg, #14b8a6, #3b82f6)",
                     }}
                   >
-                    {r.total}
+                    {formatValue(r.total)}
                   </div>
                 ) : (
-                  <span className="pl-1 text-xs text-muted-foreground">0</span>
+                  <span className="pl-1 text-xs text-muted-foreground">{formatValue(0)}</span>
                 )}
               </div>
             ))}
@@ -288,7 +334,7 @@ export function ProjetosBarChart({ rows }: { rows: ProjetoContagem[] }) {
       <div className="grid grid-cols-[1fr_9rem] gap-x-3">
         <div className="mt-1.5 flex justify-between text-[10px] tabular-nums text-muted-foreground">
           {Array.from({ length: marcas + 1 }).map((_, i) => (
-            <span key={i}>{Math.round(passo * i)}</span>
+            <span key={i}>{formatValue(Math.round(passo * i))}</span>
           ))}
         </div>
         <div />
@@ -312,9 +358,24 @@ export function PrazosCard({ data }: { data: ReturnType<typeof calcPrazos> }) {
         />
         <Legend
           rows={[
-            { color: prazoColors["no-prazo"], label: "No Prazo", count: data.counts["no-prazo"], pct: data.pct["no-prazo"] },
-            { color: prazoColors.prestes, label: "Prestes a Expirar", count: data.counts.prestes, pct: data.pct.prestes },
-            { color: prazoColors.expirada, label: "Expiradas", count: data.counts.expirada, pct: data.pct.expirada },
+            {
+              color: prazoColors["no-prazo"],
+              label: "No Prazo",
+              count: data.counts["no-prazo"],
+              pct: data.pct["no-prazo"],
+            },
+            {
+              color: prazoColors.prestes,
+              label: "Prestes a Expirar",
+              count: data.counts.prestes,
+              pct: data.pct.prestes,
+            },
+            {
+              color: prazoColors.expirada,
+              label: "Expiradas",
+              count: data.counts.expirada,
+              pct: data.pct.expirada,
+            },
           ]}
         />
       </div>

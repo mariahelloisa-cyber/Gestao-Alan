@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Rocket,
   RotateCcw,
+  Route,
   Handshake,
   GraduationCap,
   Link2,
@@ -36,21 +37,23 @@ export function PrimarySidebar() {
       ? "Membros"
       : workspace.tipo === "dashboard"
         ? "Início"
-        : workspace.tipo === "ativacao"
-          ? "Ativação"
-          : workspace.tipo === "reativacao"
-            ? "Reativação"
-            : workspace.tipo === "negociacoes"
-              ? "Negociações"
-              : workspace.tipo === "escolas-tecnicas"
-                ? "Escolas Técnicas"
-                : workspace.tipo === "tarefas-gerais"
-                  ? "Tarefas"
-                  : workspace.tipo === "links"
-                    ? "Links"
-                    : workspace.tipo === "finalizados"
-                      ? "Finalizados"
-                      : "Minhas tarefas";
+        : workspace.tipo === "acompanhamento"
+          ? "Acompanhamento"
+          : workspace.tipo === "ativacao"
+            ? "Ativação"
+            : workspace.tipo === "reativacao"
+              ? "Reativação"
+              : workspace.tipo === "negociacoes"
+                ? "Negociações"
+                : workspace.tipo === "escolas-tecnicas"
+                  ? "Escolas Técnicas"
+                  : workspace.tipo === "tarefas-gerais"
+                    ? "Tarefas"
+                    : workspace.tipo === "links"
+                      ? "Links"
+                      : workspace.tipo === "finalizados"
+                        ? "Finalizados"
+                        : "Minhas tarefas";
 
   const items: { icon: typeof Home; label: string; onClick: () => void }[] = [
     {
@@ -59,6 +62,11 @@ export function PrimarySidebar() {
       onClick: () => {
         setWorkspace({ tipo: "dashboard" as const });
       },
+    },
+    {
+      icon: Route,
+      label: "Acompanhamento",
+      onClick: () => setWorkspace({ tipo: "acompanhamento" }),
     },
     {
       icon: Rocket,

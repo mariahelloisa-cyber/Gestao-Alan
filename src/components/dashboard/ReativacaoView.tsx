@@ -3,10 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { listPolos, updatePolo, deletePolo } from "@/lib/polos.functions";
+import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -57,6 +65,7 @@ const NIVEL_BADGE: Record<Nivel, string> = {
 
 export function ReativacaoView() {
   const qc = useQueryClient();
+  const { membros } = useTasks();
   const listFn = useServerFn(listPolos);
   const updateFn = useServerFn(updatePolo);
   const deleteFn = useServerFn(deletePolo);
@@ -85,8 +94,11 @@ export function ReativacaoView() {
     });
   }, [polosDesligados, busca]);
 
+  const nomeMembro = (id: string | null) => membros.find((m) => m.id === id)?.nome ?? "—";
+
   const [verAlvo, setVerAlvo] = useState<Polo | null>(null);
   const [reativarAlvo, setReativarAlvo] = useState<Polo | null>(null);
+  const [reativadoPorId, setReativadoPorId] = useState("");
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
@@ -114,6 +126,8 @@ export function ReativacaoView() {
           data_saida: undefined,
           motivo_saida: undefined,
           observacao: reativarAlvo.observacao || undefined,
+          responsavel_id: reativarAlvo.responsavel_id || undefined,
+          reativado_por: reativadoPorId,
         },
       });
     },
@@ -126,7 +140,7 @@ export function ReativacaoView() {
   });
 
   return (
-    <div className="w-full space-y-6 bg-[var(--surface-1)] px-6 py-6">
+    <div className="w-full space-y-6 px-6 py-6">
       <header className="border-b border-border pb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reativação</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -174,26 +188,28 @@ export function ReativacaoView() {
                 <TableHead className="text-muted-foreground">Valor</TableHead>
                 <TableHead className="text-muted-foreground">Saída</TableHead>
                 <TableHead className="text-muted-foreground">Motivo da saída</TableHead>
+                <TableHead className="text-muted-foreground">Responsável</TableHead>
+                <TableHead className="text-muted-foreground">Reativado por</TableHead>
                 <TableHead className="pr-4 text-right text-muted-foreground"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={11} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : polosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     {polosDesligados.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <UserX className="h-8 w-8 text-muted-foreground" />
@@ -226,6 +242,8 @@ export function ReativacaoView() {
                     <TableCell className="max-w-[220px] truncate" title={p.motivo_saida ?? ""}>
                       {p.motivo_saida || "—"}
                     </TableCell>
+                    <TableCell>{nomeMembro(p.responsavel_id)}</TableCell>
+                    <TableCell>{nomeMembro(p.reativado_por)}</TableCell>
                     <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1">
                         <Button
@@ -241,7 +259,10 @@ export function ReativacaoView() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                          onClick={() => setReativarAlvo(p)}
+                          onClick={() => {
+                            setReativarAlvo(p);
+                            setReativadoPorId("");
+                          }}
                           title="Reativar polo"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
@@ -327,6 +348,14 @@ export function ReativacaoView() {
                 <Label className="text-xs text-muted-foreground">Motivo da saída</Label>
                 <p className="whitespace-pre-wrap">{verAlvo.motivo_saida || "—"}</p>
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Responsável</Label>
+                <p>{nomeMembro(verAlvo.responsavel_id)}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Reativado por</Label>
+                <p>{nomeMembro(verAlvo.reativado_por)}</p>
+              </div>
               {verAlvo.observacao && (
                 <div className="sm:col-span-2">
                   <Label className="text-xs text-muted-foreground">Observação</Label>
@@ -353,12 +382,34 @@ export function ReativacaoView() {
               são limpos.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>Reativado por</Label>
+            <Select value={reativadoPorId} onValueChange={setReativadoPorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione quem está reativando..." />
+              </SelectTrigger>
+              <SelectContent>
+                {membros.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nome}
+                    {m.cargo ? ` (${m.cargo})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReativarAlvo(null)}>
               Cancelar
             </Button>
             <Button
-              onClick={() => reativarMut.mutate()}
+              onClick={() => {
+                if (!reativadoPorId) {
+                  toast.error("Selecione quem está reativando o polo.");
+                  return;
+                }
+                reativarMut.mutate();
+              }}
               disabled={reativarMut.isPending}
               className="bg-emerald-600 text-white hover:bg-emerald-700"
             >
