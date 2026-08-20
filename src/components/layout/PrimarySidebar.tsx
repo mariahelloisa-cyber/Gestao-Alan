@@ -12,6 +12,7 @@ import {
   Route,
   Handshake,
   GraduationCap,
+  Trophy,
   Link2,
   CheckCheck,
   Sun,
@@ -35,25 +36,27 @@ export function PrimarySidebar() {
   const active =
     workspace.tipo === "membros"
       ? "Membros"
-      : workspace.tipo === "dashboard"
-        ? "Início"
-        : workspace.tipo === "acompanhamento"
-          ? "Acompanhamento"
-          : workspace.tipo === "ativacao"
-            ? "Ativação"
-            : workspace.tipo === "reativacao"
-              ? "Reativação"
-              : workspace.tipo === "negociacoes"
-                ? "Negociações"
-                : workspace.tipo === "escolas-tecnicas"
-                  ? "Escolas Técnicas"
-                  : workspace.tipo === "tarefas-gerais"
-                    ? "Tarefas"
-                    : workspace.tipo === "links"
-                      ? "Links"
-                      : workspace.tipo === "finalizados"
-                        ? "Finalizados"
-                        : "Minhas tarefas";
+      : workspace.tipo === "metas"
+        ? "Metas"
+        : workspace.tipo === "dashboard"
+          ? "Início"
+          : workspace.tipo === "acompanhamento"
+            ? "Acompanhamento"
+            : workspace.tipo === "ativacao"
+              ? "Ativação"
+              : workspace.tipo === "reativacao"
+                ? "Reativação"
+                : workspace.tipo === "negociacoes"
+                  ? "Negociações"
+                  : workspace.tipo === "escolas-tecnicas"
+                    ? "Escolas Técnicas"
+                    : workspace.tipo === "tarefas-gerais"
+                      ? "Tarefas"
+                      : workspace.tipo === "links"
+                        ? "Links"
+                        : workspace.tipo === "finalizados"
+                          ? "Finalizados"
+                          : "Minhas tarefas";
 
   const items: { icon: typeof Home; label: string; onClick: () => void }[] = [
     {
@@ -94,6 +97,7 @@ export function PrimarySidebar() {
       onClick: () => setWorkspace({ tipo: "tarefas-gerais" }),
     },
     { icon: UserCircle, label: "Membros", onClick: () => setWorkspace({ tipo: "membros" }) },
+    { icon: Trophy, label: "Metas", onClick: () => setWorkspace({ tipo: "metas" }) },
   ];
 
   return (

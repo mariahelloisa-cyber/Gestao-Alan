@@ -80,9 +80,9 @@ const DESTINO_LABEL: Record<Destino, string> = {
 };
 
 const DESTINO_BADGE: Record<Destino, string> = {
-  ativacao: "bg-foreground text-background",
-  negociacoes: "bg-gray-500 text-white",
-  escola_tecnica: "bg-gray-300 text-black",
+  ativacao: "bg-red-500 text-white",
+  negociacoes: "bg-red-500 text-white",
+  escola_tecnica: "bg-red-500 text-white",
 };
 
 const ORIGEM_POR_DESTINO: Record<Destino, Origem> = {

@@ -311,55 +311,55 @@ export function ReativacaoView() {
             <DialogTitle>Detalhes do polo</DialogTitle>
           </DialogHeader>
           {verAlvo && (
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
+            <div className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Nível</Label>
-                <p>{verAlvo.nivel}</p>
+                <p className="break-words">{verAlvo.nivel}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Nome</Label>
-                <p>{verAlvo.nome}</p>
+                <p className="break-words">{verAlvo.nome}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Contato</Label>
-                <p>{verAlvo.contato || "—"}</p>
+                <p className="break-words">{verAlvo.contato || "—"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">E-mail</Label>
-                <p>{verAlvo.email || "—"}</p>
+                <p className="break-words">{verAlvo.email || "—"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Produto</Label>
-                <p>{verAlvo.produto || "—"}</p>
+                <p className="break-words">{verAlvo.produto || "—"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Data de ativação</Label>
-                <p>{formatarData(verAlvo.data_ativacao)}</p>
+                <p className="break-words">{formatarData(verAlvo.data_ativacao)}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Valor de ativação</Label>
-                <p>{formatarValor(verAlvo.valor_ativacao)}</p>
+                <p className="break-words">{formatarValor(verAlvo.valor_ativacao)}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Data de saída</Label>
-                <p>{formatarData(verAlvo.data_saida)}</p>
+                <p className="break-words">{formatarData(verAlvo.data_saida)}</p>
               </div>
-              <div className="sm:col-span-2">
+              <div className="min-w-0 sm:col-span-2">
                 <Label className="text-xs text-muted-foreground">Motivo da saída</Label>
-                <p className="whitespace-pre-wrap">{verAlvo.motivo_saida || "—"}</p>
+                <p className="whitespace-pre-wrap break-words">{verAlvo.motivo_saida || "—"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Responsável</Label>
-                <p>{nomeMembro(verAlvo.responsavel_id)}</p>
+                <p className="break-words">{nomeMembro(verAlvo.responsavel_id)}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Reativado por</Label>
-                <p>{nomeMembro(verAlvo.reativado_por)}</p>
+                <p className="break-words">{nomeMembro(verAlvo.reativado_por)}</p>
               </div>
               {verAlvo.observacao && (
-                <div className="sm:col-span-2">
+                <div className="min-w-0 sm:col-span-2">
                   <Label className="text-xs text-muted-foreground">Observação</Label>
-                  <p className="whitespace-pre-wrap">{verAlvo.observacao}</p>
+                  <p className="whitespace-pre-wrap break-words">{verAlvo.observacao}</p>
                 </div>
               )}
             </div>

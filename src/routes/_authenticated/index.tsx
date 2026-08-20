@@ -6,6 +6,7 @@ import { CalendarView } from "@/components/dashboard/CalendarView";
 import { TasksProvider, useTasks } from "@/lib/tasks-store";
 import { TaskDetailDialog } from "@/components/dashboard/TaskDetailDialog";
 import { MembersView } from "@/components/dashboard/MembersView";
+import { MetasView } from "@/components/dashboard/MetasView";
 import { AcompanhamentoView } from "@/components/dashboard/AcompanhamentoView";
 import { AtivacaoView } from "@/components/dashboard/AtivacaoView";
 import { ReativacaoView } from "@/components/dashboard/ReativacaoView";
@@ -141,6 +142,14 @@ function WorkspaceContent() {
     return (
       <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <MembersView />
+      </div>
+    );
+  }
+
+  if (workspace.tipo === "metas") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+        <MetasView />
       </div>
     );
   }

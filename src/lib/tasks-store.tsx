@@ -50,6 +50,7 @@ export type WorkspaceView =
   | { tipo: "todos-clientes" }
   | { tipo: "calendario-geral" }
   | { tipo: "membros" }
+  | { tipo: "metas" }
   | { tipo: "financeiro" }
   | { tipo: "planos" }
   | { tipo: "clientes-inativos" }

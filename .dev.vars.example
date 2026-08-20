@@ -1,0 +1,20 @@
+# Template das variáveis de ambiente que o Worker lê em runtime (via
+# process.env) no Cloudflare. Copie para ".dev.vars" (já no .gitignore) pra
+# testar localmente com `npm run cf:dev`. Em produção, defina as mesmas
+# chaves como secrets do Worker (ver README/instruções de deploy) — este
+# arquivo nunca deve conter valores reais.
+
+SUPABASE_URL=""
+SUPABASE_PUBLISHABLE_KEY=""
+# Chave service_role do Supabase (Project Settings -> API). Nunca é exposta
+# ao navegador — só o servidor usa. Necessária para gestão de membros/convites.
+SUPABASE_SERVICE_ROLE_KEY=""
+
+# Envio de e-mail de convite via Resend (https://resend.com -> API Keys).
+RESEND_API_KEY=""
+RESEND_FROM_EMAIL=""
+RESEND_FROM_NAME=""
+
+# Opcional: domínios extras (separados por vírgula) que redirecionam "/" para
+# "/demandas/nova". Deixe vazio se não usar.
+DEMANDAS_DOMAINS=""

@@ -594,6 +594,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      metas_membros: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          criado_por: string | null;
+          id: string;
+          periodo: string;
+          usuario_id: string;
+          valor_meta: number;
+        };
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          periodo: string;
+          usuario_id: string;
+          valor_meta?: number;
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          periodo?: string;
+          usuario_id?: string;
+          valor_meta?: number;
+        };
+        Relationships: [];
+      };
       negociacoes: {
         Row: {
           atualizado_em: string;
