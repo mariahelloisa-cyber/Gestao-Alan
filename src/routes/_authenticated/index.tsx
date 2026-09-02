@@ -15,6 +15,7 @@ import { EscolasTecnicasView } from "@/components/dashboard/EscolasTecnicasView"
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { LinksView } from "@/components/dashboard/LinksView";
 import { FinalizadosView } from "@/components/dashboard/FinalizadosView";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -32,14 +33,38 @@ export const Route = createFileRoute("/_authenticated/")({
 function Index() {
   return (
     <TasksProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <PrimarySidebar />
-        <main className="flex flex-1 flex-col overflow-hidden">
-          <WorkspaceContent />
-        </main>
-        <TaskDetailDialog />
-      </div>
+      <Shell />
     </TasksProvider>
+  );
+}
+
+/**
+ * Cada área fica isolada num Error Boundary próprio: uma view que quebra não
+ * derruba a navegação nem o resto do CRM. A key por `workspace.tipo` faz o
+ * boundary resetar sozinho quando o usuário troca de seção.
+ */
+function Shell() {
+  const { workspace, setWorkspace } = useTasks();
+  const voltarAoInicio = () => setWorkspace({ tipo: "dashboard" });
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      <ErrorBoundary area="sidebar" compact>
+        <PrimarySidebar />
+      </ErrorBoundary>
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <ErrorBoundary
+          key={workspace.tipo}
+          area={`workspace:${workspace.tipo}`}
+          onGoBack={workspace.tipo === "dashboard" ? undefined : voltarAoInicio}
+        >
+          <WorkspaceContent />
+        </ErrorBoundary>
+      </main>
+      <ErrorBoundary area="task-detail" compact>
+        <TaskDetailDialog />
+      </ErrorBoundary>
+    </div>
   );
 }
 
