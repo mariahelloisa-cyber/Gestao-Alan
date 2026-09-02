@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Local env vars with real secrets — never commit
+.env
+
 # Local-only Supabase migration credentials — never commit
 .migration.env
 supabase/.temp/
