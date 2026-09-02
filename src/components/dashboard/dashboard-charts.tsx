@@ -118,6 +118,49 @@ export function StatTile({
   );
 }
 
+/**
+ * Tile de indicador do período.
+ *
+ * `hint` é a linha de apoio embaixo do número — a composição por trás dele
+ * ("3 de 5 reuniões"), não uma comparação com outro período.
+ */
+export function MetricTile({
+  label,
+  value,
+  hint,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const conteudo = (
+    <>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</div>
+      <div className="mt-1 min-h-[1rem] truncate text-[11px] text-muted-foreground">
+        {hint ?? ""}
+      </div>
+    </>
+  );
+
+  const classes =
+    "rounded-xl border border-border bg-card/80 p-4 text-left shadow-sm transition-colors";
+
+  if (!onClick) return <div className={classes}>{conteudo}</div>;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${classes} cursor-pointer hover:border-foreground/25 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+    >
+      {conteudo}
+    </button>
+  );
+}
+
 export function Section({
   title,
   subtitle,

@@ -496,9 +496,15 @@ export type Database = {
           criado_em: string;
           criado_por: string | null;
           data_ativacao: string | null;
+          data_reativacao: string | null;
+          data_reuniao: string | null;
           data_saida: string | null;
           email: string | null;
+          enviado_comercial_em: string | null;
+          faturamento: number | null;
+          horario_reuniao: string | null;
           id: string;
+          link_reuniao: string | null;
           motivo_saida: string | null;
           nivel: Database["public"]["Enums"]["nivel_polo"];
           nome: string;
@@ -508,6 +514,7 @@ export type Database = {
           responsavel_id: string | null;
           situacao: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao: number | null;
+          valor_reativacao: number | null;
         };
         Insert: {
           atualizado_em?: string;
@@ -515,9 +522,15 @@ export type Database = {
           criado_em?: string;
           criado_por?: string | null;
           data_ativacao?: string | null;
+          data_reativacao?: string | null;
+          data_reuniao?: string | null;
           data_saida?: string | null;
           email?: string | null;
+          enviado_comercial_em?: string | null;
+          faturamento?: number | null;
+          horario_reuniao?: string | null;
           id?: string;
+          link_reuniao?: string | null;
           motivo_saida?: string | null;
           nivel: Database["public"]["Enums"]["nivel_polo"];
           nome: string;
@@ -527,6 +540,7 @@ export type Database = {
           responsavel_id?: string | null;
           situacao?: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao?: number | null;
+          valor_reativacao?: number | null;
         };
         Update: {
           atualizado_em?: string;
@@ -534,9 +548,15 @@ export type Database = {
           criado_em?: string;
           criado_por?: string | null;
           data_ativacao?: string | null;
+          data_reativacao?: string | null;
+          data_reuniao?: string | null;
           data_saida?: string | null;
           email?: string | null;
+          enviado_comercial_em?: string | null;
+          faturamento?: number | null;
+          horario_reuniao?: string | null;
           id?: string;
+          link_reuniao?: string | null;
           motivo_saida?: string | null;
           nivel?: Database["public"]["Enums"]["nivel_polo"];
           nome?: string;
@@ -546,6 +566,7 @@ export type Database = {
           responsavel_id?: string | null;
           situacao?: Database["public"]["Enums"]["situacao_polo"];
           valor_ativacao?: number | null;
+          valor_reativacao?: number | null;
         };
         Relationships: [];
       };
@@ -897,7 +918,7 @@ export type Database = {
       nivel_polo: "N1" | "N2" | "N3";
       plano_cliente: "Bronze" | "Prata" | "Ouro" | "Diamond";
       prioridade_tarefa: "Alta" | "Média" | "Baixa" | "Nenhuma";
-      situacao_polo: "ativo" | "reativado" | "desligado";
+      situacao_polo: "ativo" | "reativado" | "desligado" | "reuniao" | "inativo";
       status_demanda: "pendente" | "aceita" | "recusada" | "transferida";
       status_tarefa: "Pendente" | "Em Progresso" | "Em Análise" | "Concluído";
       tipo_item: "tarefa" | "lembrete";
@@ -1044,7 +1065,7 @@ export const Constants = {
       nivel_polo: ["N1", "N2", "N3"],
       plano_cliente: ["Bronze", "Prata", "Ouro", "Diamond"],
       prioridade_tarefa: ["Alta", "Média", "Baixa", "Nenhuma"],
-      situacao_polo: ["ativo", "reativado", "desligado"],
+      situacao_polo: ["ativo", "reativado", "desligado", "reuniao", "inativo"],
       status_demanda: ["pendente", "aceita", "recusada", "transferida"],
       status_tarefa: ["Pendente", "Em Progresso", "Em Análise", "Concluído"],
       tipo_item: ["tarefa", "lembrete"],

@@ -15,16 +15,40 @@ import {
   Trophy,
   Link2,
   CheckCheck,
+  CalendarClock,
+  Ban,
+  Briefcase,
   Sun,
   Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTasks } from "@/lib/tasks-store";
+import { useTasks, type WorkspaceView } from "@/lib/tasks-store";
 import { InviteDialog } from "./InviteDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useTheme } from "@/lib/theme";
 import logoBrasil from "@/assets/brasil.avif";
+
+/**
+ * Qual item da sidebar fica destacado para cada workspace.
+ * Workspaces sem entrada aqui caem no rótulo padrão ("Minhas tarefas").
+ */
+const ROTULO_POR_WORKSPACE: Partial<Record<WorkspaceView["tipo"], string>> = {
+  dashboard: "Início",
+  acompanhamento: "Acompanhamento",
+  reunioes: "Reuniões",
+  ativacao: "Ativação",
+  reativacao: "Reativação",
+  "polos-inativos": "Inativos",
+  comercial: "Comercial",
+  negociacoes: "Negociações",
+  "escolas-tecnicas": "Escolas Técnicas",
+  "tarefas-gerais": "Tarefas",
+  membros: "Membros",
+  metas: "Metas",
+  links: "Links",
+  finalizados: "Finalizados",
+};
 
 export function PrimarySidebar() {
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -33,30 +57,7 @@ export function PrimarySidebar() {
   const isAdminLike = myCargo === "Admin" || myCargo === "Supervisor";
   const { theme, toggle: toggleTheme } = useTheme();
 
-  const active =
-    workspace.tipo === "membros"
-      ? "Membros"
-      : workspace.tipo === "metas"
-        ? "Metas"
-        : workspace.tipo === "dashboard"
-          ? "Início"
-          : workspace.tipo === "acompanhamento"
-            ? "Acompanhamento"
-            : workspace.tipo === "ativacao"
-              ? "Ativação"
-              : workspace.tipo === "reativacao"
-                ? "Reativação"
-                : workspace.tipo === "negociacoes"
-                  ? "Negociações"
-                  : workspace.tipo === "escolas-tecnicas"
-                    ? "Escolas Técnicas"
-                    : workspace.tipo === "tarefas-gerais"
-                      ? "Tarefas"
-                      : workspace.tipo === "links"
-                        ? "Links"
-                        : workspace.tipo === "finalizados"
-                          ? "Finalizados"
-                          : "Minhas tarefas";
+  const active = ROTULO_POR_WORKSPACE[workspace.tipo] ?? "Minhas tarefas";
 
   const items: { icon: typeof Home; label: string; onClick: () => void }[] = [
     {
@@ -72,6 +73,11 @@ export function PrimarySidebar() {
       onClick: () => setWorkspace({ tipo: "acompanhamento" }),
     },
     {
+      icon: CalendarClock,
+      label: "Reuniões",
+      onClick: () => setWorkspace({ tipo: "reunioes" }),
+    },
+    {
       icon: Rocket,
       label: "Ativação",
       onClick: () => setWorkspace({ tipo: "ativacao" }),
@@ -80,6 +86,16 @@ export function PrimarySidebar() {
       icon: RotateCcw,
       label: "Reativação",
       onClick: () => setWorkspace({ tipo: "reativacao" }),
+    },
+    {
+      icon: Ban,
+      label: "Inativos",
+      onClick: () => setWorkspace({ tipo: "polos-inativos" }),
+    },
+    {
+      icon: Briefcase,
+      label: "Comercial",
+      onClick: () => setWorkspace({ tipo: "comercial" }),
     },
     {
       icon: Handshake,

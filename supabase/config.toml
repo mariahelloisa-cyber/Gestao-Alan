@@ -1,1 +1,4 @@
-project_id = "zzblqximrjmgnbaypbnt"
+# Projeto que a aplicação realmente usa (mesmo ref de SUPABASE_URL no .env).
+# Estava apontando para "zzblqximrjmgnbaypbnt", o que faria `supabase db push`
+# aplicar as migrations no projeto errado.
+project_id = "pshfdblondwnfiwqyzqk"

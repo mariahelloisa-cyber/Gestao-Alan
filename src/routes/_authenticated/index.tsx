@@ -10,6 +10,9 @@ import { MetasView } from "@/components/dashboard/MetasView";
 import { AcompanhamentoView } from "@/components/dashboard/AcompanhamentoView";
 import { AtivacaoView } from "@/components/dashboard/AtivacaoView";
 import { ReativacaoView } from "@/components/dashboard/ReativacaoView";
+import { ReunioesView } from "@/components/dashboard/ReunioesView";
+import { InativosView } from "@/components/dashboard/InativosView";
+import { ComercialView } from "@/components/dashboard/ComercialView";
 import { NegociacoesView } from "@/components/dashboard/NegociacoesView";
 import { EscolasTecnicasView } from "@/components/dashboard/EscolasTecnicasView";
 import { DashboardView } from "@/components/dashboard/DashboardView";
@@ -131,10 +134,34 @@ function WorkspaceContent() {
     return <AcompanhamentoView />;
   }
 
+  if (workspace.tipo === "reunioes") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+        <ReunioesView />
+      </div>
+    );
+  }
+
   if (workspace.tipo === "ativacao") {
     return (
       <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <AtivacaoView />
+      </div>
+    );
+  }
+
+  if (workspace.tipo === "polos-inativos") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+        <InativosView />
+      </div>
+    );
+  }
+
+  if (workspace.tipo === "comercial") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+        <ComercialView />
       </div>
     );
   }

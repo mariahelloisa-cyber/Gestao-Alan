@@ -1,6 +1,14 @@
 import type { Tarefa } from "./mock-data";
 
-export type PeriodoPreset = "todos" | "hoje" | "7d" | "30d" | "90d" | "este-mes" | "mes-anterior" | "personalizado";
+export type PeriodoPreset =
+  | "todos"
+  | "hoje"
+  | "7d"
+  | "30d"
+  | "90d"
+  | "este-mes"
+  | "mes-anterior"
+  | "personalizado";
 
 export const PERIODO_PRESETS: { value: PeriodoPreset; label: string }[] = [
   { value: "todos", label: "Todo o período" },
@@ -25,7 +33,10 @@ function isoOf(d: Date): string {
 }
 
 /** Resolve um preset (ou período personalizado) para limites de data inclusivos. */
-export function resolverPeriodo(preset: PeriodoPreset, personalizado?: { de: string; ate: string }): Periodo {
+export function resolverPeriodo(
+  preset: PeriodoPreset,
+  personalizado?: { de: string; ate: string },
+): Periodo {
   const hoje = new Date();
   const ate = isoOf(hoje);
 
@@ -66,7 +77,7 @@ export function resolverPeriodo(preset: PeriodoPreset, personalizado?: { de: str
   }
 }
 
-function dentroDoPeriodo(iso: string | null | undefined, periodo: Periodo): boolean {
+export function dentroDoPeriodo(iso: string | null | undefined, periodo: Periodo): boolean {
   if (!iso) return false;
   const dia = iso.slice(0, 10);
   return dia >= periodo.de && dia <= periodo.ate;

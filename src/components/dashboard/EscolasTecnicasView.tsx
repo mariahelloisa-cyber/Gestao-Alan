@@ -49,6 +49,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Eye, Search, GraduationCap, X } from "lucide-react";
+import {
+  formatarTelefone,
+  formatarTelefoneSeAplicavel,
+  TELEFONE_INPUT_PROPS,
+} from "@/lib/telefone";
 
 type EscolaTecnica = Awaited<ReturnType<typeof listEscolasTecnicas>>[number];
 
@@ -77,7 +82,7 @@ const FORM_VAZIO: FormState = {
 function escolaParaForm(e: EscolaTecnica): FormState {
   return {
     nome: e.nome,
-    contato: e.contato ?? "",
+    contato: formatarTelefoneSeAplicavel(e.contato ?? ""),
     email: e.email ?? "",
     estado: e.estado ?? "",
     cidade: e.cidade ?? "",
@@ -385,8 +390,11 @@ export function EscolasTecnicasView() {
               <Label htmlFor="esc-contato">Contato</Label>
               <Input
                 id="esc-contato"
+                {...TELEFONE_INPUT_PROPS}
                 value={form.contato}
-                onChange={(e) => setForm((f) => ({ ...f, contato: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                }
                 disabled={viewOnly}
               />
             </div>

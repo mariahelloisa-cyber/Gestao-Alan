@@ -160,45 +160,33 @@ function ajustarTamanhoTabela(
   return { fontSize: 5, cellPadding: 0.8, coube: false };
 }
 
-/** Gera e baixa um PDF com a lista de tarefas já filtrada, com os critérios usados no cabeçalho. */
-export function gerarRelatorioTarefasPDF(
+// 14 (respiro após a tabela) + 46 (do título "Prazos" até a base do donut,
+// que é o elemento mais alto do bloco: donutCy = y+26, raio 20). Precisa ser o
+// MESMO valor usado na checagem de segurança depois da tabela — os dois já
+// ficaram dessincronizados uma vez e causaram uma quebra de página
+// desnecessária mesmo quando a tabela cabia certinho.
+const RESERVADO_PRAZOS = 14 + 46;
+const MARGEM_INFERIOR = 10;
+
+/**
+ * Desenha a tabela de tarefas e devolve o Y final.
+ *
+ * `alturaMaxima` liga o modo "cabe numa página só": a fonte e o padding
+ * encolhem até a tabela caber no espaço dado. Sem ele a tabela usa o tamanho
+ * padrão e o autoTable pagina normalmente — que é o que o relatório completo
+ * precisa, já que ali as tarefas são uma seção entre várias.
+ */
+export function desenharTabelaTarefas(
+  doc: jsPDF,
   tarefas: Tarefa[],
-  filtros: RelatorioFiltrosLabel,
   clientesById: Map<string, string>,
-) {
-  const doc = new jsPDF({ orientation: "landscape" });
-
-  doc.setFontSize(16);
-  doc.text("Relatório de Tarefas — Sistema Expansão", 14, 16);
-
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  const infoLinhas = [
-    `Período: ${filtros.periodo}    Membro: ${filtros.membro}    Cliente: ${filtros.cliente}`,
-    `Gerado em: ${new Date().toLocaleString("pt-BR")}    Total de tarefas: ${tarefas.length}`,
-  ];
-  doc.text(infoLinhas, 14, 24);
-
-  // Reserva espaço fixo para o bloco "Prazos" (título + donut + legenda) no
-  // rodapé da mesma página e mede de verdade (não estima) quanto a tabela
-  // vai ocupar, encolhendo fonte/padding o quanto for preciso pra caber
-  // tudo sem cortar nada, em vez de criar outra página.
-  const startY = 24 + infoLinhas.length * 5 + 3;
-  const pageHeight = doc.internal.pageSize.getHeight();
-  // 14 (respiro após a tabela) + 46 (do título "Prazos" até a base do
-  // donut, que é o elemento mais alto do bloco: donutCy = y+26, raio 20).
-  // Precisa ser o MESMO valor usado depois na checagem de segurança lá
-  // embaixo — os dois já ficaram dessincronizados uma vez e causaram uma
-  // quebra de página desnecessária mesmo quando a tabela cabia certinho.
-  const RESERVADO_PRAZOS = 14 + 46;
-  const MARGEM_INFERIOR = 10;
-  const alturaDisponivelTabela = pageHeight - startY - RESERVADO_PRAZOS - MARGEM_INFERIOR;
-
-  const { fontSize, cellPadding, coube } = ajustarTamanhoTabela(
-    doc,
-    tarefas,
-    alturaDisponivelTabela,
-  );
+  startY: number,
+  alturaMaxima?: number,
+): { finalY: number; coube: boolean } {
+  const { fontSize, cellPadding, coube } =
+    alturaMaxima != null
+      ? ajustarTamanhoTabela(doc, tarefas, alturaMaxima)
+      : { fontSize: 8, cellPadding: 2.5, coube: true };
   const pillFontSize = Math.max(5, Math.round(fontSize * 0.875 * 10) / 10);
   const pillH = Math.max(3.4, Math.round(fontSize * 0.575 * 10) / 10);
   const pillPadX = Math.max(1.2, Math.round(fontSize * 0.275 * 10) / 10);
@@ -274,20 +262,11 @@ export function gerarRelatorioTarefasPDF(
   });
 
   const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-  let y: number;
+  return { finalY, coube };
+}
 
-  // Rede de segurança: só entra em cena em casos extremos (relatório com
-  // tantas tarefas que nem no tamanho mínimo de fonte a tabela deixou
-  // espaço) — aí sim o bloco de prazos vai pra próxima página em vez de
-  // sair cortado no rodapé da primeira. Usa a MESMA reserva do orçamento
-  // acima, então só dispara se a medição real destoou do que foi previsto.
-  if (!coube || finalY + RESERVADO_PRAZOS > pageHeight - MARGEM_INFERIOR) {
-    doc.addPage();
-    y = 20;
-  } else {
-    y = finalY + 14;
-  }
-
+/** Bloco "Prazos": donut + legenda, desenhado a partir de `y`. */
+export function desenharBlocoPrazos(doc: jsPDF, tarefas: Tarefa[], y: number) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(20);
@@ -318,6 +297,57 @@ export function gerarRelatorioTarefasPDF(
       pct: prazos.pct[b],
     })),
   );
+}
+
+/** Gera e baixa um PDF com a lista de tarefas já filtrada, com os critérios usados no cabeçalho. */
+export function gerarRelatorioTarefasPDF(
+  tarefas: Tarefa[],
+  filtros: RelatorioFiltrosLabel,
+  clientesById: Map<string, string>,
+) {
+  const doc = new jsPDF({ orientation: "landscape" });
+
+  doc.setFontSize(16);
+  doc.text("Relatório de Tarefas — Sistema Expansão", 14, 16);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  const infoLinhas = [
+    `Período: ${filtros.periodo}    Membro: ${filtros.membro}    Cliente: ${filtros.cliente}`,
+    `Gerado em: ${new Date().toLocaleString("pt-BR")}    Total de tarefas: ${tarefas.length}`,
+  ];
+  doc.text(infoLinhas, 14, 24);
+
+  // Reserva espaço fixo para o bloco "Prazos" no rodapé da mesma página e mede
+  // de verdade (não estima) quanto a tabela vai ocupar, encolhendo
+  // fonte/padding o quanto for preciso pra caber tudo sem cortar nada, em vez
+  // de criar outra página.
+  const startY = 24 + infoLinhas.length * 5 + 3;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const alturaDisponivelTabela = pageHeight - startY - RESERVADO_PRAZOS - MARGEM_INFERIOR;
+
+  const { finalY, coube } = desenharTabelaTarefas(
+    doc,
+    tarefas,
+    clientesById,
+    startY,
+    alturaDisponivelTabela,
+  );
+
+  // Rede de segurança: só entra em cena em casos extremos (relatório com
+  // tantas tarefas que nem no tamanho mínimo de fonte a tabela deixou espaço)
+  // — aí sim o bloco de prazos vai pra próxima página em vez de sair cortado
+  // no rodapé da primeira. Usa a MESMA reserva do orçamento acima, então só
+  // dispara se a medição real destoou do que foi previsto.
+  let y: number;
+  if (!coube || finalY + RESERVADO_PRAZOS > pageHeight - MARGEM_INFERIOR) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y = finalY + 14;
+  }
+
+  desenharBlocoPrazos(doc, tarefas, y);
 
   const nomeArquivo = `relatorio-tarefas-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(nomeArquivo);

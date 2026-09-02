@@ -48,6 +48,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Eye, Search, Handshake, Users } from "lucide-react";
+import {
+  formatarTelefone,
+  formatarTelefoneSeAplicavel,
+  TELEFONE_INPUT_PROPS,
+} from "@/lib/telefone";
 
 type Negociacao = Awaited<ReturnType<typeof listNegociacoes>>[number];
 
@@ -72,7 +77,7 @@ const FORM_VAZIO: FormState = {
 function negociacaoParaForm(n: Negociacao): FormState {
   return {
     nome: n.nome,
-    contato: n.contato ?? "",
+    contato: formatarTelefoneSeAplicavel(n.contato ?? ""),
     email: n.email ?? "",
     numero_funcionarios: n.numero_funcionarios != null ? String(n.numero_funcionarios) : "",
     observacao: n.observacao ?? "",
@@ -360,8 +365,11 @@ export function NegociacoesView() {
               <Label htmlFor="neg-contato">Contato</Label>
               <Input
                 id="neg-contato"
+                {...TELEFONE_INPUT_PROPS}
                 value={form.contato}
-                onChange={(e) => setForm((f) => ({ ...f, contato: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                }
                 disabled={viewOnly}
               />
             </div>

@@ -58,6 +58,11 @@ import {
   Handshake,
   Search,
 } from "lucide-react";
+import {
+  formatarTelefone,
+  formatarTelefoneSeAplicavel,
+  TELEFONE_INPUT_PROPS,
+} from "@/lib/telefone";
 
 type Acompanhamento = Awaited<ReturnType<typeof listAcompanhamentos>>[number];
 type Etapa = Acompanhamento["etapa"];
@@ -253,7 +258,7 @@ export function AcompanhamentoView() {
     setViewOnly(false);
     setEditForm({
       nome: a.nome,
-      contato: a.contato ?? "",
+      contato: formatarTelefoneSeAplicavel(a.contato ?? ""),
       email: a.email ?? "",
       destino: a.destino,
       observacao: a.observacao ?? "",
@@ -266,7 +271,7 @@ export function AcompanhamentoView() {
     setViewOnly(true);
     setEditForm({
       nome: a.nome,
-      contato: a.contato ?? "",
+      contato: formatarTelefoneSeAplicavel(a.contato ?? ""),
       email: a.email ?? "",
       destino: a.destino,
       observacao: a.observacao ?? "",
@@ -644,8 +649,11 @@ export function AcompanhamentoView() {
                 <Label htmlFor="ac-contato">Contato</Label>
                 <Input
                   id="ac-contato"
+                  {...TELEFONE_INPUT_PROPS}
                   value={editForm.contato}
-                  onChange={(e) => setEditForm((f) => ({ ...f, contato: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                  }
                   disabled={viewOnly}
                 />
               </div>
@@ -785,8 +793,11 @@ export function AcompanhamentoView() {
                     <Label htmlFor="ac-novo-contato">Contato</Label>
                     <Input
                       id="ac-novo-contato"
+                      {...TELEFONE_INPUT_PROPS}
                       value={novoForm.contato}
-                      onChange={(e) => setNovoForm((f) => ({ ...f, contato: e.target.value }))}
+                      onChange={(e) =>
+                        setNovoForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                      }
                     />
                   </div>
                   <div className="space-y-1.5">

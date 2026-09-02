@@ -97,6 +97,15 @@ export function MetasView() {
     () => polos.filter((p) => p.data_ativacao && p.data_ativacao >= de && p.data_ativacao <= ate),
     [polos, de, ate],
   );
+  // Realizado = ativação + reativação. A reativação tem dono próprio
+  // (`reativado_por`), porque quem traz o polo de volta costuma não ser quem o
+  // ativou. A dashboard usa a mesma conta — mudar aqui sem mudar lá faria as
+  // duas telas mostrarem números diferentes para a mesma meta.
+  const reativacoesNoPeriodo = useMemo(
+    () =>
+      polos.filter((p) => p.data_reativacao && p.data_reativacao >= de && p.data_reativacao <= ate),
+    [polos, de, ate],
+  );
   const metasNoPeriodo = useMemo(
     () => metas.filter((m) => m.periodo === periodo),
     [metas, periodo],
@@ -107,25 +116,31 @@ export function MetasView() {
     return membrosOrdenados
       .map((m) => {
         const ativacoesDoMembro = ativacoesNoPeriodo.filter((p) => p.responsavel_id === m.id);
-        const valorAtivado = ativacoesDoMembro.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0);
+        const reativacoesDoMembro = reativacoesNoPeriodo.filter((p) => p.reativado_por === m.id);
+        const valorAtivado =
+          ativacoesDoMembro.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0) +
+          reativacoesDoMembro.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0);
         const valorMeta = metasNoPeriodo.find((x) => x.usuario_id === m.id)?.valor_meta ?? 0;
         const pct = valorMeta > 0 ? (valorAtivado / valorMeta) * 100 : 0;
         return {
           membro: m,
           countAtivacoes: ativacoesDoMembro.length,
+          countReativacoes: reativacoesDoMembro.length,
           valorAtivado,
           valorMeta,
           pct,
         };
       })
       .sort((a, b) => b.pct - a.pct || b.valorAtivado - a.valorAtivado);
-  }, [membros, ativacoesNoPeriodo, metasNoPeriodo]);
+  }, [membros, ativacoesNoPeriodo, reativacoesNoPeriodo, metasNoPeriodo]);
 
   const rankingExibido =
     membroFiltroId === TODOS ? ranking : ranking.filter((r) => r.membro.id === membroFiltroId);
 
   const metaEquipe = metasNoPeriodo.reduce((s, m) => s + m.valor_meta, 0);
-  const ativadoEquipe = ativacoesNoPeriodo.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0);
+  const ativadoEquipe =
+    ativacoesNoPeriodo.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0) +
+    reativacoesNoPeriodo.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0);
   const pctEquipe = metaEquipe > 0 ? (ativadoEquipe / metaEquipe) * 100 : 0;
 
   const abrirEditarMeta = (m: { id: string; nome: string }) => {
@@ -266,7 +281,8 @@ export function MetasView() {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Meta: {formatarValor(r.valorMeta)} · {pctExibida}% da meta · {r.countAtivacoes}{" "}
-                    ativaç{r.countAtivacoes === 1 ? "ão" : "ões"}
+                    ativaç{r.countAtivacoes === 1 ? "ão" : "ões"} · {r.countReativacoes} reativaç
+                    {r.countReativacoes === 1 ? "ão" : "ões"}
                   </p>
                 </div>
 

@@ -42,8 +42,11 @@ export type WorkspaceView =
   | { tipo: "tarefas" }
   | { tipo: "tarefas-gerais" }
   | { tipo: "dashboard" }
+  | { tipo: "reunioes" }
   | { tipo: "ativacao" }
   | { tipo: "reativacao" }
+  | { tipo: "polos-inativos" }
+  | { tipo: "comercial" }
   | { tipo: "acompanhamento" }
   | { tipo: "negociacoes" }
   | { tipo: "escolas-tecnicas" }

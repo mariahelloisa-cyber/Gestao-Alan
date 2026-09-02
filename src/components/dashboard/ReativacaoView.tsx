@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { listPolos, updatePolo, deletePolo } from "@/lib/polos.functions";
+import { listPolos, createPolo, updatePolo, deletePolo } from "@/lib/polos.functions";
 import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -42,10 +43,42 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Eye, Search, RotateCcw, UserX } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Plus, Trash2, Eye, Search, RotateCcw, UserX } from "lucide-react";
+import { formatarTelefone, TELEFONE_INPUT_PROPS } from "@/lib/telefone";
 
 type Nivel = "N1" | "N2" | "N3";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
+
+type FormState = {
+  nivel: Nivel;
+  nome: string;
+  contato: string;
+  email: string;
+  produto: string;
+  // Este cadastro é sobre a reativação: pede data e valor de reativação, e só
+  // quem reativou. Valor/data de ativação e responsável ficam de fora.
+  data_reativacao: string;
+  valor_reativacao: string;
+  data_saida: string;
+  motivo_saida: string;
+  observacao: string;
+  reativado_por: string;
+};
+
+const FORM_VAZIO: FormState = {
+  nivel: "N1",
+  nome: "",
+  contato: "",
+  email: "",
+  produto: "",
+  data_reativacao: "",
+  valor_reativacao: "",
+  data_saida: "",
+  motivo_saida: "",
+  observacao: "",
+  reativado_por: "",
+};
 
 function formatarValor(v: number | null): string {
   if (v == null) return "—";
@@ -67,6 +100,7 @@ export function ReativacaoView() {
   const qc = useQueryClient();
   const { membros } = useTasks();
   const listFn = useServerFn(listPolos);
+  const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
   const deleteFn = useServerFn(deletePolo);
 
@@ -100,6 +134,51 @@ export function ReativacaoView() {
   const [reativarAlvo, setReativarAlvo] = useState<Polo | null>(null);
   const [reativadoPorId, setReativadoPorId] = useState("");
 
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [form, setForm] = useState<FormState>(FORM_VAZIO);
+
+  const abrirNovo = () => {
+    setForm(FORM_VAZIO);
+    setNovoOpen(true);
+  };
+
+  const criarMut = useMutation({
+    mutationFn: async (vars: FormState) => {
+      await createFn({
+        data: {
+          nivel: vars.nivel,
+          nome: vars.nome.trim(),
+          contato: vars.contato.trim() || null,
+          email: vars.email.trim() || null,
+          produto: vars.produto.trim() || null,
+          data_reativacao: vars.data_reativacao || null,
+          valor_reativacao: vars.valor_reativacao ? Number(vars.valor_reativacao) : null,
+          // Cadastrado direto em Reativação: já entra como "desligado" pra
+          // aparecer nesta lista — é um polo em acompanhamento pra reativar.
+          situacao: "desligado",
+          data_saida: vars.data_saida || null,
+          motivo_saida: vars.motivo_saida.trim() || null,
+          observacao: vars.observacao.trim() || null,
+          reativado_por: vars.reativado_por || null,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Polo cadastrado.");
+      setNovoOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao cadastrar polo."),
+  });
+
+  const criar = () => {
+    if (!form.nome.trim()) {
+      toast.error("Informe o nome do polo.");
+      return;
+    }
+    criarMut.mutate(form);
+  };
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: () => {
@@ -112,21 +191,16 @@ export function ReativacaoView() {
   const reativarMut = useMutation({
     mutationFn: async () => {
       if (!reativarAlvo) return;
+      // Só o que muda: os campos omitidos são preservados pelo updatePolo, e
+      // `null` limpa data/motivo da saída — o polo voltou a operar.
       await updateFn({
         data: {
           id: reativarAlvo.id,
           nivel: reativarAlvo.nivel as Nivel,
           nome: reativarAlvo.nome,
-          contato: reativarAlvo.contato || undefined,
-          email: reativarAlvo.email || undefined,
-          produto: reativarAlvo.produto || undefined,
-          data_ativacao: reativarAlvo.data_ativacao || undefined,
-          valor_ativacao: reativarAlvo.valor_ativacao ?? undefined,
           situacao: "reativado",
-          data_saida: undefined,
-          motivo_saida: undefined,
-          observacao: reativarAlvo.observacao || undefined,
-          responsavel_id: reativarAlvo.responsavel_id || undefined,
+          data_saida: null,
+          motivo_saida: null,
           reativado_por: reativadoPorId,
         },
       });
@@ -141,11 +215,16 @@ export function ReativacaoView() {
 
   return (
     <div className="w-full space-y-6 px-6 py-6">
-      <header className="border-b border-border pb-5">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reativação</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Polos inativados — dados de ativação, data e motivo da saída.
-        </p>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reativação</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Polos inativados — dados de ativação, data e motivo da saída.
+          </p>
+        </div>
+        <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
+          <Plus className="mr-1.5 h-4 w-4" /> Novo polo
+        </Button>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -156,9 +235,9 @@ export function ReativacaoView() {
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
-          <p className="text-sm text-muted-foreground">Valor perdido</p>
+          <p className="text-sm text-muted-foreground">Valor de reativação</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {formatarValor(polosDesligados.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0))}
+            {formatarValor(polosDesligados.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0))}
           </p>
         </div>
       </div>
@@ -186,6 +265,8 @@ export function ReativacaoView() {
                 <TableHead className="text-muted-foreground">Produto</TableHead>
                 <TableHead className="text-muted-foreground">Ativação</TableHead>
                 <TableHead className="text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-muted-foreground">Valor reativação</TableHead>
+                <TableHead className="text-muted-foreground">Reativação</TableHead>
                 <TableHead className="text-muted-foreground">Saída</TableHead>
                 <TableHead className="text-muted-foreground">Motivo da saída</TableHead>
                 <TableHead className="text-muted-foreground">Responsável</TableHead>
@@ -196,20 +277,20 @@ export function ReativacaoView() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={13} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : polosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
                     {polosDesligados.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <UserX className="h-8 w-8 text-muted-foreground" />
@@ -238,6 +319,8 @@ export function ReativacaoView() {
                     </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
                     <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
+                    <TableCell>{formatarValor(p.valor_reativacao)}</TableCell>
+                    <TableCell>{formatarData(p.data_reativacao)}</TableCell>
                     <TableCell>{formatarData(p.data_saida)}</TableCell>
                     <TableCell className="max-w-[220px] truncate" title={p.motivo_saida ?? ""}>
                       {p.motivo_saida || "—"}
@@ -304,6 +387,159 @@ export function ReativacaoView() {
         </div>
       </div>
 
+      {/* Cadastrar direto em Reativação */}
+      <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo polo</DialogTitle>
+            <DialogDescription>
+              Cadastro direto em Reativação — o polo entra já como inativo, em acompanhamento pra
+              reativar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Nível</Label>
+              <RadioGroup
+                value={form.nivel}
+                onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
+                className="flex items-center gap-4"
+              >
+                {(["N1", "N2", "N3"] as const).map((n) => (
+                  <label key={n} className="flex items-center gap-1.5 text-sm">
+                    <RadioGroupItem value={n} id={`novo-nivel-${n}`} />
+                    {n}
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-nome">Nome do polo</Label>
+              <Input
+                id="novo-nome"
+                value={form.nome}
+                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-produto">Produto</Label>
+              <Input
+                id="novo-produto"
+                value={form.produto}
+                onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-contato">Contato</Label>
+              <Input
+                id="novo-contato"
+                {...TELEFONE_INPUT_PROPS}
+                value={form.contato}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-email">E-mail</Label>
+              <Input
+                id="novo-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-data-reativacao">Data de reativação</Label>
+              <Input
+                id="novo-data-reativacao"
+                type="date"
+                value={form.data_reativacao}
+                onChange={(e) => setForm((f) => ({ ...f, data_reativacao: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-valor-reativacao">Valor de reativação (R$)</Label>
+              <Input
+                id="novo-valor-reativacao"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.valor_reativacao}
+                onChange={(e) => setForm((f) => ({ ...f, valor_reativacao: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-data-saida">Data de saída</Label>
+              <Input
+                id="novo-data-saida"
+                type="date"
+                value={form.data_saida}
+                onChange={(e) => setForm((f) => ({ ...f, data_saida: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Reativado por</Label>
+              <Select
+                value={form.reativado_por}
+                onValueChange={(v) => setForm((f) => ({ ...f, reativado_por: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {membros.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                      {m.cargo ? ` (${m.cargo})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Os dois textos lado a lado encurtam bastante a altura do diálogo. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-motivo-saida">Motivo da saída</Label>
+              <Textarea
+                id="novo-motivo-saida"
+                rows={3}
+                value={form.motivo_saida}
+                onChange={(e) => setForm((f) => ({ ...f, motivo_saida: e.target.value }))}
+                placeholder="Descreva o motivo..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="novo-obs">Observação</Label>
+              <Textarea
+                id="novo-obs"
+                rows={3}
+                value={form.observacao}
+                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNovoOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={criar} disabled={criarMut.isPending}>
+              Cadastrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Visualizar */}
       <Dialog open={!!verAlvo} onOpenChange={(o) => !o && setVerAlvo(null)}>
         <DialogContent className="max-w-lg">
@@ -339,6 +575,14 @@ export function ReativacaoView() {
               <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Valor de ativação</Label>
                 <p className="break-words">{formatarValor(verAlvo.valor_ativacao)}</p>
+              </div>
+              <div className="min-w-0">
+                <Label className="text-xs text-muted-foreground">Valor de reativação</Label>
+                <p className="break-words">{formatarValor(verAlvo.valor_reativacao)}</p>
+              </div>
+              <div className="min-w-0">
+                <Label className="text-xs text-muted-foreground">Data de reativação</Label>
+                <p className="break-words">{formatarData(verAlvo.data_reativacao)}</p>
               </div>
               <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Data de saída</Label>
