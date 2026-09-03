@@ -10,6 +10,7 @@ import {
   Handshake,
   LayoutGrid,
   Loader2,
+  Phone,
   RefreshCw,
   Send,
   Sparkles,
@@ -25,6 +26,7 @@ import { listNegociacoes } from "@/lib/negociacoes.functions";
 import { listEscolasTecnicas } from "@/lib/escolas-tecnicas.functions";
 import { listAcompanhamentos } from "@/lib/acompanhamentos.functions";
 import { listMetas } from "@/lib/metas.functions";
+import { listLeads } from "@/lib/leads.functions";
 import { PERIODO_PRESETS, resolverPeriodo, type PeriodoPreset } from "@/lib/productivity";
 import { hojeIso } from "@/lib/polos-ui";
 import {
@@ -33,6 +35,7 @@ import {
   composicaoBase,
   filtrarPorEscopo,
   filtrarReativacoesPorEscopo,
+  atividadeLeads,
   reativacoes,
 } from "@/lib/dashboard-metrics";
 import {
@@ -65,6 +68,7 @@ const TIME = "time";
 const SECAO_ICONE: Record<SecaoRelatorio, React.ComponentType<{ className?: string }>> = {
   resumo: LayoutGrid,
   metas: Target,
+  ligacoes: Phone,
   reunioes: Users,
   ativacoes: Zap,
   reativacoes: RefreshCw,
@@ -115,6 +119,7 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
   const listEscolasFn = useServerFn(listEscolasTecnicas);
   const listAcompFn = useServerFn(listAcompanhamentos);
   const listMetasFn = useServerFn(listMetas);
+  const listLeadsFn = useServerFn(listLeads);
 
   const { data: polos = [] } = useQuery({
     queryKey: ["polos-ativacao"],
@@ -135,6 +140,10 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
   const { data: metas = [] } = useQuery({
     queryKey: ["metas-membros"],
     queryFn: () => listMetasFn(),
+  });
+  const { data: leads = [] } = useQuery({
+    queryKey: ["leads"],
+    queryFn: () => listLeadsFn(),
   });
 
   // `membrosAtribuiveis` já exclui o Admin — ele não atende cliente e não deve
@@ -170,13 +179,15 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
   const previa = useMemo(() => {
     const polosResp = filtrarPorEscopo(polos, escopoId);
     const polosReat = filtrarReativacoesPorEscopo(polos, escopoId);
+    const leadsResp = filtrarPorEscopo(leads, escopoId);
     return {
       reunioes: coorteFechamento(polosResp, periodo, hojeIso()).realizadas,
       ativacoes: ativacoes(polosResp, periodo).quantidade,
       reativacoes: reativacoes(polosReat, periodo).quantidade,
       polosAtivos: composicaoBase(polosResp, periodo).aoFim,
+      ligacoes: atividadeLeads(leadsResp, periodo).ligacoes,
     };
-  }, [polos, escopoId, periodo]);
+  }, [polos, leads, escopoId, periodo]);
 
   const aplicarPreset = (p: PresetRelatorio) => {
     if (p !== "personalizado") setSecoes(PRESETS_RELATORIO.find((x) => x.id === p)!.secoes);
@@ -201,8 +212,9 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
             escolas,
             acompanhamentos,
             metas,
+            leads,
             tarefas: tarefasFiltradas,
-            membros: membrosOrdenados.map((m) => ({ id: m.id, nome: m.nome })),
+            membros: membrosOrdenados.map((m) => ({ id: m.id, nome: m.nome, cargo: m.cargo })),
           },
           {
             periodo,
@@ -392,11 +404,13 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
                 <span>{periodoLabel}</span>
                 <span>{escopoLabel}</span>
               </div>
-              {(previa.reunioes > 0 ||
+              {(previa.ligacoes > 0 ||
+                previa.reunioes > 0 ||
                 previa.ativacoes > 0 ||
                 previa.reativacoes > 0 ||
                 previa.polosAtivos > 0) && (
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+                  {previa.ligacoes > 0 && <span>{previa.ligacoes} ligações</span>}
                   {previa.reunioes > 0 && <span>{previa.reunioes} reuniões</span>}
                   {previa.ativacoes > 0 && <span>{previa.ativacoes} ativações</span>}
                   {previa.reativacoes > 0 && <span>{previa.reativacoes} reativações</span>}

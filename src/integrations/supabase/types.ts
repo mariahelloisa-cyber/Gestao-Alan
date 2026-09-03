@@ -615,12 +615,65 @@ export type Database = {
         };
         Relationships: [];
       };
+      leads: {
+        Row: {
+          atualizado_em: string;
+          contato: string | null;
+          criado_em: string;
+          criado_por: string | null;
+          data_ligacao: string;
+          id: string;
+          nome_gestor: string | null;
+          nome_polo: string;
+          observacao: string | null;
+          polo_id: string | null;
+          responsavel_id: string | null;
+          reuniao_marcada: boolean;
+          reuniao_marcada_em: string | null;
+          tipo: Database["public"]["Enums"]["lead_tipo"];
+        };
+        Insert: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_ligacao?: string;
+          id?: string;
+          nome_gestor?: string | null;
+          nome_polo: string;
+          observacao?: string | null;
+          polo_id?: string | null;
+          responsavel_id?: string | null;
+          reuniao_marcada?: boolean;
+          reuniao_marcada_em?: string | null;
+          tipo?: Database["public"]["Enums"]["lead_tipo"];
+        };
+        Update: {
+          atualizado_em?: string;
+          contato?: string | null;
+          criado_em?: string;
+          criado_por?: string | null;
+          data_ligacao?: string;
+          id?: string;
+          nome_gestor?: string | null;
+          nome_polo?: string;
+          observacao?: string | null;
+          polo_id?: string | null;
+          responsavel_id?: string | null;
+          reuniao_marcada?: boolean;
+          reuniao_marcada_em?: string | null;
+          tipo?: Database["public"]["Enums"]["lead_tipo"];
+        };
+        Relationships: [];
+      };
       metas_membros: {
         Row: {
           atualizado_em: string;
           criado_em: string;
           criado_por: string | null;
           id: string;
+          meta_ligacoes_dia: number;
+          meta_reunioes_dia: number;
           periodo: string;
           usuario_id: string;
           valor_meta: number;
@@ -630,6 +683,8 @@ export type Database = {
           criado_em?: string;
           criado_por?: string | null;
           id?: string;
+          meta_ligacoes_dia?: number;
+          meta_reunioes_dia?: number;
           periodo: string;
           usuario_id: string;
           valor_meta?: number;
@@ -639,6 +694,8 @@ export type Database = {
           criado_em?: string;
           criado_por?: string | null;
           id?: string;
+          meta_ligacoes_dia?: number;
+          meta_reunioes_dia?: number;
           periodo?: string;
           usuario_id?: string;
           valor_meta?: number;
@@ -920,6 +977,7 @@ export type Database = {
       cargo_usuario: "Admin" | "Membro" | "Cliente" | "Supervisor";
       complexidade_tarefa: "Fácil" | "Média" | "Difícil";
       escopo_item: "geral" | "pessoal";
+      lead_tipo: "empreendedor" | "polo";
       nivel_polo: "N1" | "N2" | "N3";
       plano_cliente: "Bronze" | "Prata" | "Ouro" | "Diamond";
       prioridade_tarefa: "Alta" | "Média" | "Baixa" | "Nenhuma";

@@ -8,6 +8,7 @@ import { listPolos } from "@/lib/polos.functions";
 import { listNegociacoes } from "@/lib/negociacoes.functions";
 import { listEscolasTecnicas } from "@/lib/escolas-tecnicas.functions";
 import { listMetas } from "@/lib/metas.functions";
+import { listLeads } from "@/lib/leads.functions";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -42,6 +43,7 @@ import { formatarValor, hojeIso, rotuloRelativo } from "@/lib/polos-ui";
 import {
   ativacoes,
   ativoEm,
+  atividadeLeads,
   composicaoBase,
   contarNoPeriodo,
   coorteFechamento,
@@ -132,8 +134,9 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
 
   const filtroExpansao = usePeriodoFiltro("todos");
   const filtroNumeros = usePeriodoFiltro("este-mes");
-  const filtroEvolucao = usePeriodoFiltro("todos");
+  const filtroEvolucao = usePeriodoFiltro("90d");
   const filtroProdutividade = usePeriodoFiltro("este-mes");
+  const filtroProspeccao = usePeriodoFiltro("este-mes");
 
   // --- Dados ----------------------------------------------------------------
   const listAcompFn = useServerFn(listAcompanhamentos);
@@ -141,6 +144,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const listNegociacoesFn = useServerFn(listNegociacoes);
   const listEscolasFn = useServerFn(listEscolasTecnicas);
   const listMetasFn = useServerFn(listMetas);
+  const listLeadsFn = useServerFn(listLeads);
 
   const { data: acompanhamentos = [] } = useQuery({
     queryKey: ["acompanhamentos"],
@@ -162,12 +166,57 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     queryKey: ["metas-membros"],
     queryFn: () => listMetasFn(),
   });
+  const { data: leads = [] } = useQuery({
+    queryKey: ["leads"],
+    queryFn: () => listLeadsFn(),
+  });
 
   // --- Recortes por escopo --------------------------------------------------
   // Ativação, reunião e envio ao comercial pertencem ao `responsavel_id`;
   // reativação tem dono próprio (`reativado_por`).
   const polosResp = useMemo(() => filtrarPorEscopo(polos, escopoId), [polos, escopoId]);
   const polosReat = useMemo(() => filtrarReativacoesPorEscopo(polos, escopoId), [polos, escopoId]);
+  const leadsEscopo = useMemo(() => filtrarPorEscopo(leads, escopoId), [leads, escopoId]);
+
+  // --- Prospecção — seção "Ligações e reuniões" -----------------------------
+  // O trabalho do membro: ligar e marcar reunião. Conduzir a reunião é do
+  // supervisor, então o meio do funil (reuniões realizadas) não entra aqui —
+  // só o fechamento.
+  //
+  // O filtro é livre (mês, mês anterior, período personalizado…) porque a
+  // pergunta é "quanto saiu no recorte X". As metas de ligação e reunião são
+  // por dia e ficam ao lado do total, sem virar meta de período.
+  const periodoProspeccao = filtroProspeccao.periodo;
+  const funilProsp = useMemo(
+    () => atividadeLeads(leadsEscopo, periodoProspeccao),
+    [leadsEscopo, periodoProspeccao],
+  );
+  // "Fecharam" não é uma métrica do Lead — é a mesma conta de "Números do
+  // período": polos que estavam em reunião (por `data_reuniao`) e viraram
+  // ativação, tenham vindo de um Lead ou não. Contar pela data de marcação do
+  // Lead faria a mesma reunião fechar aqui e não lá, sempre que a reunião
+  // acontecesse num mês diferente do da marcação.
+  const coorteProsp = useMemo(
+    () => coorteFechamento(polosResp, periodoProspeccao, hoje),
+    [polosResp, periodoProspeccao, hoje],
+  );
+  const mesProspeccao = periodoProspeccao.de.slice(0, 7);
+  /**
+   * Meta diária somada dos membros no escopo — é por dia, e não vira meta de
+   * período. Só cargo Membro entra: o Supervisor conduz a reunião, não liga.
+   */
+  const metasAtividade = useMemo(() => {
+    const idsNoEscopo = escopoId
+      ? [escopoId]
+      : membrosAtribuiveis.filter((m) => m.cargo === "Membro").map((m) => m.id);
+    const doMes = metas.filter(
+      (m) => m.periodo === mesProspeccao && idsNoEscopo.includes(m.usuario_id),
+    );
+    return {
+      ligacoesDia: doMes.reduce((s, m) => s + (m.meta_ligacoes_dia ?? 0), 0),
+      reunioesDia: doMes.reduce((s, m) => s + (m.meta_reunioes_dia ?? 0), 0),
+    };
+  }, [metas, mesProspeccao, escopoId, membrosAtribuiveis]);
 
   // --- Indicadores do período — seção "Números do período" ------------------
   const periodoNumeros = filtroNumeros.periodo;
@@ -499,8 +548,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
             Ação do dia <Selo>sempre atual</Selo>
           </h2>
           <p className="text-xs text-muted-foreground">
-            O que precisa de atenção agora — sem filtro de período.
-            de intervalo
+            O que precisa de atenção agora — sem filtro de período. de intervalo
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -544,14 +592,68 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </div>
       </section>
 
+      {/* Prospecção — o topo do funil que termina na taxa de fechamento */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">
+              Ligações e reuniões <Selo>{escopoLabel}</Selo>
+            </h2>
+          </div>
+          <PeriodFilter
+            preset={filtroProspeccao.preset}
+            onPresetChange={filtroProspeccao.setPreset}
+            customDe={filtroProspeccao.customDe}
+            customAte={filtroProspeccao.customAte}
+            onCustomChange={(de, ate) => {
+              filtroProspeccao.setCustomDe(de);
+              filtroProspeccao.setCustomAte(ate);
+            }}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <MetricTile
+            label="Ligações"
+            value={inteiro(funilProsp.ligacoes)}
+            hint={
+              metasAtividade.ligacoesDia > 0
+                ? `Meta: ${metasAtividade.ligacoesDia}/dia`
+                : "Sem meta de ligações cadastrada"
+            }
+            onClick={ir({ tipo: "leads" })}
+          />
+          <MetricTile
+            label="Reuniões marcadas"
+            value={inteiro(funilProsp.reunioesMarcadas)}
+            hint={
+              metasAtividade.reunioesDia > 0
+                ? `Meta: ${metasAtividade.reunioesDia}/dia`
+                : "Sem meta de reuniões cadastrada"
+            }
+            onClick={ir({ tipo: "leads" })}
+          />
+          <MetricTile
+            label="Fecharam"
+            value={inteiro(coorteProsp.fechadas)}
+            hint={
+              coorteProsp.realizadas > 0
+                ? `${percentual(coorteProsp.pct)} das ${coorteProsp.realizadas} reuniões · ${coorteProsp.emAberto} em aberto`
+                : "Sem reuniões realizadas no período"
+            }
+            onClick={ir({ tipo: "ativacao" })}
+          />
+        </div>
+      </section>
+
+
       {/* Expansão e funil — carteira e funil, sempre a empresa inteira */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Expansão</h2>
             <p className="text-xs text-muted-foreground">
-              Carteira e funil de acompanhamento — negociações e escolas técnicas estão em Números
-              do período
+              Carteira e funil de acompanhamento
             </p>
           </div>
           <PeriodFilter
@@ -693,10 +795,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Evolução mensal</h2>
-            <p className="text-xs text-muted-foreground">
-              Os gráficos seguem o filtro abaixo (até 24 meses); o recorde olha o histórico
-              completo, pra não se perder quando alguém filtra
-            </p>
           </div>
           <PeriodFilter
             preset={filtroEvolucao.preset}

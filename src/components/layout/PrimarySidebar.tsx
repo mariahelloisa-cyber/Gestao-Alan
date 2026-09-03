@@ -10,6 +10,7 @@ import {
   Rocket,
   RotateCcw,
   Route,
+  PhoneCall,
   Handshake,
   GraduationCap,
   Trophy,
@@ -36,6 +37,7 @@ import logoBrasil from "@/assets/brasil.avif";
 const ROTULO_POR_WORKSPACE: Partial<Record<WorkspaceView["tipo"], string>> = {
   dashboard: "Início",
   acompanhamento: "Acompanhamento",
+  leads: "Leads",
   reunioes: "Reuniões",
   ativacao: "Ativação",
   reativacao: "Reativação",
@@ -71,6 +73,11 @@ export function PrimarySidebar() {
       icon: Route,
       label: "Acompanhamento",
       onClick: () => setWorkspace({ tipo: "acompanhamento" }),
+    },
+    {
+      icon: PhoneCall,
+      label: "Leads",
+      onClick: () => setWorkspace({ tipo: "leads" }),
     },
     {
       icon: CalendarClock,

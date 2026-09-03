@@ -6,6 +6,7 @@ import { calcPrazos, dentroDoPeriodo } from "./productivity";
 import { desenharBlocoPrazos, desenharTabelaTarefas } from "./reports";
 import {
   ativacoes,
+  atividadeLeads,
   composicaoBase,
   coorteFechamento,
   esteveAtivoNoPeriodo,
@@ -33,6 +34,7 @@ import {
 export type SecaoRelatorio =
   | "resumo"
   | "metas"
+  | "ligacoes"
   | "reunioes"
   | "ativacoes"
   | "reativacoes"
@@ -47,6 +49,11 @@ export type SecaoRelatorio =
 export const SECOES: { id: SecaoRelatorio; label: string; descricao: string }[] = [
   { id: "resumo", label: "Resumo do período", descricao: "Indicadores-chave em números" },
   { id: "metas", label: "Meta x realizado", descricao: "Desempenho da meta por membro" },
+  {
+    id: "ligacoes",
+    label: "Ligações e reuniões",
+    descricao: "Ligou, marcou e fechou, por membro",
+  },
   { id: "reunioes", label: "Reuniões realizadas", descricao: "Com o desfecho de cada uma" },
   { id: "ativacoes", label: "Ativações", descricao: "Novos polos no período" },
   { id: "reativacoes", label: "Reativações", descricao: "Polos reativados no período" },
@@ -66,17 +73,26 @@ export const PRESETS_RELATORIO: { id: PresetRelatorio; label: string; secoes: Se
     {
       id: "executivo",
       label: "Executivo",
-      secoes: ["resumo", "metas", "ativacoes", "reativacoes", "base", "evolucao"],
+      secoes: ["resumo", "metas", "ligacoes", "ativacoes", "reativacoes", "base", "evolucao"],
     },
     {
       id: "comercial",
       label: "Comercial",
-      secoes: ["resumo", "reunioes", "comercial", "negociacoes", "escolas", "funil", "tarefas"],
+      secoes: [
+        "resumo",
+        "ligacoes",
+        "reunioes",
+        "comercial",
+        "negociacoes",
+        "escolas",
+        "funil",
+        "tarefas",
+      ],
     },
     {
       id: "operacional",
       label: "Operacional",
-      secoes: ["resumo", "reunioes", "ativacoes", "reativacoes", "base", "tarefas"],
+      secoes: ["resumo", "ligacoes", "reunioes", "ativacoes", "reativacoes", "base", "tarefas"],
     },
     { id: "personalizado", label: "Personalizado", secoes: [] },
   ];
@@ -120,6 +136,15 @@ export interface MetaRelatorio {
   usuario_id: string;
   periodo: string;
   valor_meta: number;
+  meta_ligacoes_dia: number;
+  meta_reunioes_dia: number;
+}
+
+export interface LeadRelatorio {
+  data_ligacao: string;
+  responsavel_id: string | null;
+  reuniao_marcada: boolean;
+  reuniao_marcada_em: string | null;
 }
 
 export interface DadosRelatorio {
@@ -128,8 +153,11 @@ export interface DadosRelatorio {
   escolas: EscolaRelatorio[];
   acompanhamentos: AcompanhamentoRelatorio[];
   metas: MetaRelatorio[];
+  leads: LeadRelatorio[];
   tarefas: Tarefa[];
-  membros: { id: string; nome: string }[];
+  // Cargo entra só para a seção de Ligações e reuniões: é trabalho de
+  // Membro — o Supervisor conduz a reunião, não liga.
+  membros: { id: string; nome: string; cargo?: string }[];
 }
 
 export interface OpcoesRelatorio {
@@ -534,6 +562,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
   const polosReat = filtrarReativacoesPorEscopo(dados.polos, escopoId);
   const negociacoes = filtrarPorEscopo(dados.negociacoes, escopoId);
   const escolas = filtrarPorEscopo(dados.escolas, escopoId);
+  const leadsResp = filtrarPorEscopo(dados.leads, escopoId);
 
   const ativ = ativacoes(polosResp, periodo);
   const reat = reativacoes(polosReat, periodo);
@@ -742,6 +771,100 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
           );
         },
       },
+    );
+  }
+
+  // --- Ligações e reuniões ---
+  if (inclui("ligacoes")) {
+    // Mesmo mês de referência que a seção "Meta x realizado": o preset "todo o
+    // período" cai em "hoje", senão o mês de referência ficaria indefinido.
+    const mesMetaLig = periodo.ate === "9999-12-31" ? hoje.slice(0, 7) : periodo.ate.slice(0, 7);
+    const metasDoMesLig = dados.metas.filter((m) => m.periodo === mesMetaLig);
+
+    // Ligações e reuniões marcadas são métricas do Lead (coorte da própria
+    // ação); "fecharam" não é — é a mesma conta da seção "Meta x realizado"
+    // e do resumo: polos que estavam em reunião e viraram ativação, tenham
+    // vindo de um Lead ou não. Medir o fechamento pela data de marcação do
+    // Lead faria a mesma reunião fechar aqui e não nas outras seções, sempre
+    // que a reunião acontecesse num mês diferente do da marcação.
+    const funilTotal = atividadeLeads(leadsResp, periodo);
+    const coorteLig = coorteFechamento(polosResp, periodo, hoje);
+
+    // Ligar é trabalho de Membro — o Supervisor conduz a reunião e não tem
+    // meta de ligação, então nem ele nem o Admin (já fora de `dados.membros`)
+    // entram nesta lista.
+    const alvoLig = (escopoId ? dados.membros.filter((m) => m.id === escopoId) : dados.membros)
+      .filter((m) => m.cargo === "Membro")
+      .map((m) => {
+        const leadsDoMembro = leadsResp.filter((l) => l.responsavel_id === m.id);
+        const funil = atividadeLeads(leadsDoMembro, periodo);
+        const polosDoMembro = dados.polos.filter((p) => p.responsavel_id === m.id);
+        const coorte = coorteFechamento(polosDoMembro, periodo, hoje);
+        const metaDoMembro = metasDoMesLig.find((x) => x.usuario_id === m.id);
+        return {
+          nome: m.nome,
+          metaLigacoesDia: metaDoMembro?.meta_ligacoes_dia ?? 0,
+          metaReunioesDia: metaDoMembro?.meta_reunioes_dia ?? 0,
+          ligacoes: funil.ligacoes,
+          reunioesMarcadas: funil.reunioesMarcadas,
+          reunioesRealizadas: coorte.realizadas,
+          fechadas: coorte.fechadas,
+          pctFechamento: coorte.pct,
+        };
+      })
+      .filter(
+        (r) =>
+          r.metaLigacoesDia > 0 ||
+          r.metaReunioesDia > 0 ||
+          r.ligacoes > 0 ||
+          r.reunioesMarcadas > 0 ||
+          r.reunioesRealizadas > 0,
+      )
+      .sort((a, b) => b.ligacoes - a.ligacoes || b.fechadas - a.fechadas);
+
+    tituloSecao(
+      c,
+      "Ligações e reuniões",
+      "Ligou e marcou — trabalho de quem tem cargo Membro. Metas são por dia; fechamento segue a mesma conta do resumo",
+    );
+    kpis(
+      c,
+      [
+        { label: "Ligações", valor: String(funilTotal.ligacoes) },
+        { label: "Reuniões marcadas", valor: String(funilTotal.reunioesMarcadas) },
+        { label: "Reuniões realizadas", valor: String(coorteLig.realizadas) },
+        { label: "Fecharam", valor: String(coorteLig.fechadas) },
+        {
+          label: "Taxa de fechamento",
+          valor: coorteLig.realizadas > 0 ? pct(coorteLig.pct) : "—",
+        },
+      ],
+      5,
+    );
+
+    tabela(
+      c,
+      [
+        "Membro",
+        "Meta ligações/dia",
+        "Ligações",
+        "Meta reuniões/dia",
+        "Reuniões marcadas",
+        "Reuniões realizadas",
+        "Fecharam",
+        "% fechamento",
+      ],
+      alvoLig.map((r) => [
+        r.nome,
+        r.metaLigacoesDia > 0 ? `${r.metaLigacoesDia}/dia` : "—",
+        String(r.ligacoes),
+        r.metaReunioesDia > 0 ? `${r.metaReunioesDia}/dia` : "—",
+        String(r.reunioesMarcadas),
+        String(r.reunioesRealizadas),
+        String(r.fechadas),
+        r.reunioesRealizadas > 0 ? pct(r.pctFechamento) : "—",
+      ]),
+      { vazio: "Nenhum membro com meta ou atividade de ligação neste período." },
     );
   }
 

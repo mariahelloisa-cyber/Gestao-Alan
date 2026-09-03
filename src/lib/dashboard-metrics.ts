@@ -332,3 +332,43 @@ export function mesRecorde(serie: PontoMensal[]): PontoMensal | null {
 export function contarNoPeriodo(itens: RegistroPeriodo[], periodo: Periodo): number {
   return itens.filter((i) => dentroDoPeriodo(dia(i.criado_em), periodo)).length;
 }
+
+// --- Prospecção: ligações e reuniões marcadas ------------------------------
+
+/** O subconjunto de `Lead` que as métricas leem. */
+export interface LeadMetrica {
+  data_ligacao: string;
+  responsavel_id: string | null;
+  reuniao_marcada: boolean;
+  reuniao_marcada_em: string | null;
+}
+
+export interface AtividadeLeads {
+  /** Ligações feitas no período (por `data_ligacao`). */
+  ligacoes: number;
+  /** Reuniões marcadas no período (por `reuniao_marcada_em`). */
+  reunioesMarcadas: number;
+}
+
+/**
+ * O que o membro fez no período: ligou, marcou.
+ *
+ * As duas pontas são medidas por coorte da própria ação (a data da ligação, a
+ * data em que a reunião foi marcada) — não pela data em que a reunião
+ * efetivamente aconteceu.
+ *
+ * O fechamento **não** entra aqui: "fechou" é definido pelo mesmo critério do
+ * resto do sistema — `coorteFechamento`, que olha os polos que estavam em
+ * reunião e viraram ativação, independente de terem um Lead de origem. Medir
+ * o fechamento a partir do Lead faria a mesma reunião contar como fechada
+ * numa tela e não noutra, sempre que a data da reunião caísse num período
+ * diferente da data em que o Lead foi marcado.
+ */
+export function atividadeLeads(leads: LeadMetrica[], periodo: Periodo): AtividadeLeads {
+  return {
+    ligacoes: leads.filter((l) => dentroDoPeriodo(l.data_ligacao, periodo)).length,
+    reunioesMarcadas: leads.filter(
+      (l) => l.reuniao_marcada && dentroDoPeriodo(l.reuniao_marcada_em, periodo),
+    ).length,
+  };
+}

@@ -5,6 +5,7 @@ import { KanbanView, AddTaskDialog } from "@/components/dashboard/KanbanView";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { TasksProvider, useTasks } from "@/lib/tasks-store";
 import { TaskDetailDialog } from "@/components/dashboard/TaskDetailDialog";
+import { LeadsView } from "@/components/dashboard/LeadsView";
 import { MembersView } from "@/components/dashboard/MembersView";
 import { MetasView } from "@/components/dashboard/MetasView";
 import { AcompanhamentoView } from "@/components/dashboard/AcompanhamentoView";
@@ -186,6 +187,14 @@ function WorkspaceContent() {
     return (
       <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
         <EscolasTecnicasView />
+      </div>
+    );
+  }
+
+  if (workspace.tipo === "leads") {
+    return (
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+        <LeadsView />
       </div>
     );
   }

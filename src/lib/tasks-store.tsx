@@ -48,6 +48,7 @@ export type WorkspaceView =
   | { tipo: "polos-inativos" }
   | { tipo: "comercial" }
   | { tipo: "acompanhamento" }
+  | { tipo: "leads" }
   | { tipo: "negociacoes" }
   | { tipo: "escolas-tecnicas" }
   | { tipo: "todos-clientes" }
@@ -213,10 +214,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const membros = data?.membros ?? [];
   // O Admin é só administrador do sistema: não atende cliente, então não deve
   // aparecer como opção de responsável nem entrar em rankings/metas.
-  const membrosAtribuiveis = useMemo(
-    () => membros.filter((m) => m.cargo !== "Admin"),
-    [membros],
-  );
+  const membrosAtribuiveis = useMemo(() => membros.filter((m) => m.cargo !== "Admin"), [membros]);
   const planos = (data?.planos ?? []) as Plano[];
   const transacoes = (data?.transacoes ?? []) as Transacao[];
   const projetos = (data?.projetos ?? []) as Projeto[];
