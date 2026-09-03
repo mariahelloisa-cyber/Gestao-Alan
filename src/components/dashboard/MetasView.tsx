@@ -46,7 +46,7 @@ const TODOS = "todos";
 export function MetasView() {
   const qc = useQueryClient();
   const { membrosAtribuiveis: membros, myCargo } = useTasks();
-  const isAdmin = myCargo === "Admin";
+  const isAdmin = myCargo === "Admin" || myCargo === "Supervisor";
 
   const [de, setDe] = useState(() => primeiroDiaDoMes());
   const [ate, setAte] = useState(() => ultimoDiaDoMes());

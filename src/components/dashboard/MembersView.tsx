@@ -212,7 +212,7 @@ export function MembersView() {
     (async () => {
       try {
         const r = await getMyRoleFn();
-        const admin = r.cargo === "Admin";
+        const admin = r.cargo === "Admin" || r.cargo === "Supervisor";
         setIsAdmin(admin);
         if (admin) await recarregarPendentes();
       } catch {

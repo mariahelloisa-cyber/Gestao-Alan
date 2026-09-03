@@ -70,7 +70,7 @@ export function KanbanView({
     geralMembroFilter,
   } = useTasks();
   const apenasMinhas = !semCliente && !clienteFilterId;
-  const isAdmin = myCargo === "Admin";
+  const isAdmin = myCargo === "Admin" || myCargo === "Supervisor";
   // Admin/Supervisor vê as tarefas de todo mundo em "Tarefas"; Membro só vê
   // as próprias.
   const podeVerTudo = myCargo === "Admin" || myCargo === "Supervisor";
@@ -82,7 +82,7 @@ export function KanbanView({
   const onDrop = (status: Status) => {
     if (!draggingId) return;
     if (status === "Concluído" && !isAdmin) {
-      toast.error("Apenas Admins podem marcar tarefas como concluídas.");
+      toast.error("Apenas Admins e Supervisores podem marcar tarefas como concluídas.");
       setDraggingId(null);
       return;
     }

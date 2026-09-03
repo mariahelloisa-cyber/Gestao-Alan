@@ -90,7 +90,7 @@ export function TaskDetailDialog() {
   } = useTasks();
   const tarefa = tarefas.find((t) => t.id === selectedTaskId) ?? null;
   const cliente = tarefa ? clientes.find((c) => c.id === tarefa.cliente_id) : null;
-  const isAdmin = myCargo === "Admin";
+  const isAdmin = myCargo === "Admin" || myCargo === "Supervisor";
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");

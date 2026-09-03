@@ -359,8 +359,8 @@ export const createTarefa = createServerFn({ method: "POST" })
         .select("cargo")
         .eq("id", userId)
         .maybeSingle();
-      if ((me?.cargo as string) !== "Admin") {
-        throw new Error("Apenas Admins podem marcar tarefas como concluídas.");
+      if ((me?.cargo as string) !== "Admin" && (me?.cargo as string) !== "Supervisor") {
+        throw new Error("Apenas Admins e Supervisores podem marcar tarefas como concluídas.");
       }
     }
 
@@ -422,8 +422,8 @@ export const updateTarefa = createServerFn({ method: "POST" })
         .select("cargo")
         .eq("id", userId)
         .maybeSingle();
-      if ((me?.cargo as string) !== "Admin") {
-        throw new Error("Apenas Admins podem marcar tarefas como concluídas.");
+      if ((me?.cargo as string) !== "Admin" && (me?.cargo as string) !== "Supervisor") {
+        throw new Error("Apenas Admins e Supervisores podem marcar tarefas como concluídas.");
       }
     }
 
@@ -726,8 +726,8 @@ export const updateMemberRole = createServerFn({ method: "POST" })
       .select("cargo")
       .eq("id", userId)
       .maybeSingle();
-    if ((me?.cargo as string) !== "Admin") {
-      throw new Error("Apenas Admins podem alterar cargos.");
+    if ((me?.cargo as string) !== "Admin" && (me?.cargo as string) !== "Supervisor") {
+      throw new Error("Apenas Admins e Supervisores podem alterar cargos.");
     }
     if (data.user_id === userId) {
       throw new Error("Você não pode alterar seu próprio cargo.");
@@ -758,8 +758,8 @@ export const setMemberStatus = createServerFn({ method: "POST" })
       .select("cargo")
       .eq("id", userId)
       .maybeSingle();
-    if ((me?.cargo as string) !== "Admin") {
-      throw new Error("Apenas Admins podem inativar ou reativar membros.");
+    if ((me?.cargo as string) !== "Admin" && (me?.cargo as string) !== "Supervisor") {
+      throw new Error("Apenas Admins e Supervisores podem inativar ou reativar membros.");
     }
     if (data.user_id === userId) {
       throw new Error("Você não pode inativar sua própria conta.");
@@ -787,8 +787,8 @@ export const deleteMember = createServerFn({ method: "POST" })
       .select("cargo")
       .eq("id", userId)
       .maybeSingle();
-    if ((me?.cargo as string) !== "Admin") {
-      throw new Error("Apenas Admins podem excluir membros.");
+    if ((me?.cargo as string) !== "Admin" && (me?.cargo as string) !== "Supervisor") {
+      throw new Error("Apenas Admins e Supervisores podem excluir membros.");
     }
     if (data.user_id === userId) {
       throw new Error("Você não pode excluir sua própria conta.");
