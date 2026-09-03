@@ -1,8 +1,8 @@
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { type CellHookData } from "jspdf-autotable";
 import type { Tarefa } from "./mock-data";
 import type { Periodo } from "./productivity";
-import { dentroDoPeriodo } from "./productivity";
+import { calcPrazos, dentroDoPeriodo } from "./productivity";
 import { desenharBlocoPrazos, desenharTabelaTarefas } from "./reports";
 import {
   ativacoes,
@@ -21,11 +21,13 @@ import {
 } from "./dashboard-metrics";
 
 /**
- * Relatório completo de Expansão em PDF.
+ * Relatório executivo de Expansão em PDF.
  *
  * As métricas vêm das mesmas funções que a dashboard usa (`dashboard-metrics`),
  * de propósito: um relatório com contas próprias divergiria da tela na primeira
- * mudança de regra, e ninguém saberia qual dos dois está certo.
+ * mudança de regra, e ninguém saberia qual dos dois está certo. Este módulo
+ * cuida só de composição visual — nenhum número aqui é calculado de outro jeito
+ * do que na tela.
  */
 
 export type SecaoRelatorio =
@@ -43,19 +45,41 @@ export type SecaoRelatorio =
   | "tarefas";
 
 export const SECOES: { id: SecaoRelatorio; label: string; descricao: string }[] = [
-  { id: "resumo", label: "Resumo do período", descricao: "Todos os indicadores em números" },
-  { id: "metas", label: "Meta x realizado", descricao: "Por membro, no mês do período" },
+  { id: "resumo", label: "Resumo do período", descricao: "Indicadores-chave em números" },
+  { id: "metas", label: "Meta x realizado", descricao: "Desempenho da meta por membro" },
   { id: "reunioes", label: "Reuniões realizadas", descricao: "Com o desfecho de cada uma" },
-  { id: "ativacoes", label: "Ativações", descricao: "Polos ativados no período" },
+  { id: "ativacoes", label: "Ativações", descricao: "Novos polos no período" },
   { id: "reativacoes", label: "Reativações", descricao: "Polos reativados no período" },
   { id: "base", label: "Polos ativos no período", descricao: "A carteira e sua composição" },
   { id: "comercial", label: "Enviados ao comercial", descricao: "Polos repassados no período" },
   { id: "negociacoes", label: "Negociações", descricao: "Cadastradas no período" },
   { id: "escolas", label: "Escolas técnicas", descricao: "Cadastradas no período" },
-  { id: "funil", label: "Funil de acompanhamento", descricao: "Situação atual por etapa" },
+  { id: "funil", label: "Funil de acompanhamento", descricao: "Distribuição por etapa" },
   { id: "evolucao", label: "Evolução mensal", descricao: "Histórico mês a mês" },
   { id: "tarefas", label: "Tarefas", descricao: "Lista e distribuição de prazos" },
 ];
+
+export type PresetRelatorio = "executivo" | "comercial" | "operacional" | "personalizado";
+
+export const PRESETS_RELATORIO: { id: PresetRelatorio; label: string; secoes: SecaoRelatorio[] }[] =
+  [
+    {
+      id: "executivo",
+      label: "Executivo",
+      secoes: ["resumo", "metas", "ativacoes", "reativacoes", "base", "evolucao"],
+    },
+    {
+      id: "comercial",
+      label: "Comercial",
+      secoes: ["resumo", "reunioes", "comercial", "negociacoes", "escolas", "funil", "tarefas"],
+    },
+    {
+      id: "operacional",
+      label: "Operacional",
+      secoes: ["resumo", "reunioes", "ativacoes", "reativacoes", "base", "tarefas"],
+    },
+    { id: "personalizado", label: "Personalizado", secoes: [] },
+  ];
 
 // --- Formato dos dados de entrada ------------------------------------------
 
@@ -106,7 +130,6 @@ export interface DadosRelatorio {
   metas: MetaRelatorio[];
   tarefas: Tarefa[];
   membros: { id: string; nome: string }[];
-  clientesById: Map<string, string>;
 }
 
 export interface OpcoesRelatorio {
@@ -126,6 +149,7 @@ const ETAPA_LABEL: Record<string, string> = {
   reuniao: "Reunião",
   proposta_comercial: "Proposta Comercial",
 };
+const ETAPA_ORDEM = Object.keys(ETAPA_LABEL);
 
 const SITUACAO_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -134,6 +158,37 @@ const SITUACAO_LABEL: Record<string, string> = {
   reuniao: "Em reunião",
   inativo: "Inativo",
 };
+
+const SITUACAO_COR: Record<string, [number, number, number]> = {
+  ativo: [16, 185, 129],
+  reativado: [16, 185, 129],
+  reuniao: [217, 119, 6],
+  desligado: [148, 163, 184],
+  inativo: [239, 68, 68],
+};
+
+const DESFECHO_COR: Record<string, [number, number, number]> = {
+  Fechou: [16, 185, 129],
+  Perdida: [239, 68, 68],
+  "Em aberto": [217, 119, 6],
+};
+
+function corPorLabelSituacao(labelExibido: string): [number, number, number] | undefined {
+  const chave = Object.entries(SITUACAO_LABEL).find(([, l]) => l === labelExibido)?.[0];
+  return chave ? SITUACAO_COR[chave] : undefined;
+}
+
+// --- Identidade visual --------------------------------------------------
+
+const BRAND: [number, number, number] = [123, 104, 238];
+const BRAND_DARK: [number, number, number] = [76, 58, 194];
+const TEXT_DARK: [number, number, number] = [24, 24, 27];
+const TEXT_MUTED: [number, number, number] = [113, 113, 122];
+const TEXT_FAINT: [number, number, number] = [161, 161, 170];
+const SURFACE: [number, number, number] = [248, 248, 251];
+const BORDER: [number, number, number] = [228, 228, 235];
+const SUCCESS: [number, number, number] = [16, 185, 129];
+const WARNING: [number, number, number] = [217, 119, 6];
 
 // --- Formatação -------------------------------------------------------------
 
@@ -159,98 +214,308 @@ function rotuloMes(key: string): string {
 
 // --- Cursor de desenho ------------------------------------------------------
 
-/** Estado de escrita no documento: onde a próxima seção começa. */
 interface Cursor {
   doc: jsPDF;
   y: number;
+  opts: OpcoesRelatorio;
 }
 
 const MARGEM = 14;
 const RODAPE = 14;
+/** Altura reservada no topo das páginas internas para o cabeçalho discreto. */
+const HEADER_INTERNO_Y = 27;
 
+function larguraPagina(doc: jsPDF): number {
+  return doc.internal.pageSize.getWidth();
+}
 function alturaPagina(doc: jsPDF): number {
   return doc.internal.pageSize.getHeight();
 }
 
-/** Abre página nova se não couber `altura` no que resta da atual. */
+/** Cabeçalho discreto repetido em toda página interna (a partir da 2ª). */
+function desenharHeaderInterno(doc: jsPDF, opts: OpcoesRelatorio) {
+  const w = larguraPagina(doc);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND_DARK);
+  doc.text("Sistema Expansão", MARGEM, 11.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...TEXT_FAINT);
+  doc.text("Relatório de Expansão", MARGEM, 16);
+
+  doc.setFontSize(8);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(`${opts.periodoLabel}  ·  ${opts.escopoLabel}`, w - MARGEM, 13.5, { align: "right" });
+
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.4);
+  doc.line(MARGEM, 20, w - MARGEM, 20);
+}
+
+/** Abre página nova (com cabeçalho já desenhado) se não couber `altura` no que resta da atual. */
 function garantirEspaco(c: Cursor, altura: number) {
   if (c.y + altura > alturaPagina(c.doc) - RODAPE) {
     c.doc.addPage();
-    c.y = 20;
+    desenharHeaderInterno(c.doc, c.opts);
+    c.y = HEADER_INTERNO_Y;
   }
 }
 
 function tituloSecao(c: Cursor, texto: string, subtitulo?: string) {
   garantirEspaco(c, subtitulo ? 22 : 16);
+  c.doc.setFillColor(...BRAND);
+  c.doc.roundedRect(MARGEM, c.y - 4, 1.4, 6.5, 0.7, 0.7, "F");
   c.doc.setFont("helvetica", "bold");
-  c.doc.setFontSize(12);
-  c.doc.setTextColor(20);
-  c.doc.text(texto, MARGEM, c.y);
+  c.doc.setFontSize(12.5);
+  c.doc.setTextColor(...TEXT_DARK);
+  c.doc.text(texto, MARGEM + 4.5, c.y);
   c.y += 5;
   if (subtitulo) {
     c.doc.setFont("helvetica", "normal");
     c.doc.setFontSize(8);
-    c.doc.setTextColor(120);
-    c.doc.text(subtitulo, MARGEM, c.y);
+    c.doc.setTextColor(...TEXT_MUTED);
+    c.doc.text(subtitulo, MARGEM + 4.5, c.y);
     c.y += 4;
   }
-  c.y += 2;
+  c.y += 2.5;
 }
 
-function tabela(c: Cursor, head: string[], body: (string | number)[][]) {
+/** Caixa compacta e elegante para "sem registros" — evita tabelas vazias. */
+function estadoVazio(c: Cursor, detalhe: string, titulo = "Nenhum registro encontrado") {
+  const h = 20;
+  garantirEspaco(c, h);
+  const w = larguraPagina(c.doc) - MARGEM * 2;
+  c.doc.setDrawColor(...BORDER);
+  c.doc.setLineWidth(0.4);
+  c.doc.roundedRect(MARGEM, c.y, w, h, 2, 2, "S");
+  c.doc.setFont("helvetica", "bold");
+  c.doc.setFontSize(9);
+  c.doc.setTextColor(...TEXT_MUTED);
+  c.doc.text(titulo, larguraPagina(c.doc) / 2, c.y + 8.5, { align: "center" });
+  c.doc.setFont("helvetica", "normal");
+  c.doc.setFontSize(7.5);
+  c.doc.setTextColor(...TEXT_FAINT);
+  c.doc.text(detalhe, larguraPagina(c.doc) / 2, c.y + 14, { align: "center", maxWidth: w - 30 });
+  c.y += h + 8;
+}
+
+/** Pill colorido centrado num ponto — usado para desfecho/situação nas tabelas. */
+function desenharPill(
+  doc: jsPDF,
+  texto: string,
+  cor: [number, number, number],
+  cx: number,
+  cy: number,
+) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.4);
+  const t = texto.toUpperCase();
+  const larguraTexto = doc.getTextWidth(t);
+  const padX = 1.6;
+  const w = larguraTexto + padX * 2;
+  const h = 3.8;
+  doc.setDrawColor(...cor);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(cx - w / 2, cy - h / 2, w, h, h / 2, h / 2, "S");
+  doc.setTextColor(...cor);
+  doc.text(t, cx, cy, { align: "center", baseline: "middle" });
+}
+
+/** Tabela padronizada (estilo, cores, banding) com estado vazio elegante embutido. */
+function tabela(
+  c: Cursor,
+  head: string[],
+  body: (string | number)[][],
+  opts?: {
+    vazio?: string;
+    pillCol?: number;
+    pillCor?: (v: string) => [number, number, number] | undefined;
+    /** Callback extra por célula do corpo — usado para desenhar barras embutidas (ex.: progresso de meta). */
+    celula?: (d: CellHookData) => void;
+  },
+) {
   if (body.length === 0) {
-    garantirEspaco(c, 12);
-    c.doc.setFont("helvetica", "italic");
-    c.doc.setFontSize(9);
-    c.doc.setTextColor(140);
-    c.doc.text("Nenhum registro no período.", MARGEM, c.y);
-    c.y += 10;
+    estadoVazio(c, opts?.vazio ?? "Não houve registros desta categoria no período selecionado.");
     return;
   }
+
+  const pillCol = opts?.pillCol;
 
   autoTable(c.doc, {
     startY: c.y,
     head: [head],
     body,
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [123, 104, 238] },
-    margin: { left: MARGEM, right: MARGEM },
+    styles: {
+      fontSize: 8.2,
+      cellPadding: 2.6,
+      lineColor: BORDER,
+      lineWidth: 0.2,
+      textColor: TEXT_DARK,
+    },
+    headStyles: { fillColor: BRAND, textColor: 255, fontStyle: "bold", fontSize: 7.8 },
+    alternateRowStyles: { fillColor: SURFACE },
+    margin: { left: MARGEM, right: MARGEM, top: HEADER_INTERNO_Y },
+    didDrawPage: (hook) => {
+      // Chamado toda vez que o autoTable quebra a tabela para uma nova
+      // página por conta própria (pagina longa) — redesenha o cabeçalho
+      // discreto nela. Na primeira página o cabeçalho já veio de fora.
+      if (hook.pageNumber > 1) desenharHeaderInterno(c.doc, c.opts);
+    },
+    didParseCell: (d) => {
+      if (d.section !== "body" || pillCol == null || d.column.index !== pillCol) return;
+      d.cell.text = [];
+    },
+    didDrawCell: (d) => {
+      if (d.section === "body" && pillCol != null && d.column.index === pillCol) {
+        const valor = String(d.cell.raw ?? "");
+        const cor = opts?.pillCor?.(valor);
+        if (cor) {
+          desenharPill(
+            c.doc,
+            valor,
+            cor,
+            d.cell.x + d.cell.width / 2,
+            d.cell.y + d.cell.height / 2,
+          );
+        }
+      }
+      opts?.celula?.(d);
+    },
   });
-  c.y = (c.doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+  c.y = (c.doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 9;
 }
 
-/** Grade de indicadores: rótulo pequeno em cima, valor grande embaixo. */
-function grade(c: Cursor, itens: { label: string; valor: string; nota?: string }[]) {
-  const largura = (c.doc.internal.pageSize.getWidth() - MARGEM * 2) / 4;
-  const alturaLinha = 18;
-  const linhas = Math.ceil(itens.length / 4);
-  garantirEspaco(c, linhas * alturaLinha);
+/** Grade de KPIs em cartões — rótulo pequeno, valor grande, nota opcional. */
+function kpis(c: Cursor, itens: { label: string; valor: string; nota?: string }[], cols = 4) {
+  const gap = 3.5;
+  const largura = (larguraPagina(c.doc) - MARGEM * 2 - gap * (cols - 1)) / cols;
+  const alturaCard = 21;
+  const linhas = Math.ceil(itens.length / cols);
+  garantirEspaco(c, linhas * (alturaCard + gap));
 
   itens.forEach((item, i) => {
-    const col = i % 4;
-    const linha = Math.floor(i / 4);
-    const x = MARGEM + col * largura;
-    const y = c.y + linha * alturaLinha;
+    const col = i % cols;
+    const linha = Math.floor(i / cols);
+    const x = MARGEM + col * (largura + gap);
+    const y = c.y + linha * (alturaCard + gap);
+
+    c.doc.setFillColor(...SURFACE);
+    c.doc.roundedRect(x, y, largura, alturaCard, 2, 2, "F");
+    c.doc.setFillColor(...BRAND);
+    c.doc.roundedRect(x, y, 1.2, alturaCard, 0.6, 0.6, "F");
 
     c.doc.setFont("helvetica", "normal");
-    c.doc.setFontSize(7.5);
-    c.doc.setTextColor(120);
-    c.doc.text(item.label, x, y);
+    c.doc.setFontSize(6.6);
+    c.doc.setTextColor(...TEXT_MUTED);
+    c.doc.text(item.label.toUpperCase(), x + 4.5, y + 6.5, { maxWidth: largura - 7 });
 
     c.doc.setFont("helvetica", "bold");
-    c.doc.setFontSize(13);
-    c.doc.setTextColor(20);
-    c.doc.text(item.valor, x, y + 6.5);
+    c.doc.setFontSize(12.5);
+    c.doc.setTextColor(...TEXT_DARK);
+    c.doc.text(item.valor, x + 4.5, y + 14);
 
     if (item.nota) {
       c.doc.setFont("helvetica", "normal");
-      c.doc.setFontSize(7);
-      c.doc.setTextColor(140);
-      c.doc.text(item.nota, x, y + 11);
+      c.doc.setFontSize(6.2);
+      c.doc.setTextColor(...TEXT_FAINT);
+      c.doc.text(item.nota, x + 4.5, y + 18.3, { maxWidth: largura - 7 });
     }
   });
 
-  c.y += linhas * alturaLinha + 4;
+  c.y += linhas * (alturaCard + gap) + 3;
+}
+
+/** Barra de progresso horizontal simples — usada no destaque de meta. */
+function barraProgresso(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  pctValor: number,
+  cor: [number, number, number],
+) {
+  doc.setFillColor(235, 235, 240);
+  doc.roundedRect(x, y, w, h, h / 2, h / 2, "F");
+  const larguraPreenchida = Math.max(0, Math.min(pctValor, 100) / 100) * w;
+  if (larguraPreenchida > h) {
+    doc.setFillColor(...cor);
+    doc.roundedRect(x, y, larguraPreenchida, h, h / 2, h / 2, "F");
+  }
+}
+
+/** Lista de barras horizontais rotuladas — para funil e outras distribuições pequenas e limitadas. */
+function barrasHorizontais(
+  c: Cursor,
+  itens: { label: string; valor: number; display: string }[],
+  cor: [number, number, number] = BRAND,
+) {
+  const max = Math.max(1, ...itens.map((i) => i.valor));
+  const alturaBarra = 5.5;
+  const gap = 4.5;
+  const labelW = 42;
+  const w = larguraPagina(c.doc) - MARGEM * 2 - labelW - 20;
+  const alturaTotal = itens.length * (alturaBarra + gap);
+  garantirEspaco(c, alturaTotal + 4);
+
+  itens.forEach((item, i) => {
+    const y = c.y + i * (alturaBarra + gap);
+    c.doc.setFont("helvetica", "normal");
+    c.doc.setFontSize(7.6);
+    c.doc.setTextColor(...TEXT_MUTED);
+    c.doc.text(item.label, MARGEM, y + alturaBarra / 2, {
+      baseline: "middle",
+      maxWidth: labelW - 3,
+    });
+
+    c.doc.setFillColor(238, 238, 244);
+    c.doc.roundedRect(MARGEM + labelW, y, w, alturaBarra, 1, 1, "F");
+    const larguraPreenchida = item.valor > 0 ? Math.max(2.5, (item.valor / max) * w) : 0;
+    if (larguraPreenchida > 0) {
+      c.doc.setFillColor(...cor);
+      c.doc.roundedRect(MARGEM + labelW, y, larguraPreenchida, alturaBarra, 1, 1, "F");
+    }
+
+    c.doc.setFont("helvetica", "bold");
+    c.doc.setFontSize(7.6);
+    c.doc.setTextColor(...TEXT_DARK);
+    c.doc.text(item.display, MARGEM + labelW + w + 3, y + alturaBarra / 2, { baseline: "middle" });
+  });
+
+  c.y += alturaTotal + 7;
+}
+
+/** Barra horizontal em miniatura desenhada dentro de uma célula do autoTable. */
+function barraNaCelula(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  valor: number,
+  max: number,
+  cor: [number, number, number],
+  rotulo: string | null = String(valor),
+) {
+  const barraW = rotulo ? w * 0.55 : w;
+  const barraH = Math.min(2.6, h * 0.35);
+  const barraY = y + h / 2 - barraH / 2;
+  doc.setFillColor(238, 238, 244);
+  doc.roundedRect(x, barraY, barraW, barraH, barraH / 2, barraH / 2, "F");
+  const preenchido = valor > 0 && max > 0 ? Math.max(1.2, (valor / max) * barraW) : 0;
+  if (preenchido > 0) {
+    doc.setFillColor(...cor);
+    doc.roundedRect(x, barraY, preenchido, barraH, barraH / 2, barraH / 2, "F");
+  }
+  if (rotulo) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(rotulo, x + barraW + 2.5, y + h / 2, { baseline: "middle" });
+  }
 }
 
 // --- Geração ----------------------------------------------------------------
@@ -258,7 +523,8 @@ function grade(c: Cursor, itens: { label: string; valor: string; nota?: string }
 export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRelatorio) {
   const { periodo, escopoId, secoes, hoje } = opts;
   const doc = new jsPDF({ orientation: "landscape" });
-  const c: Cursor = { doc, y: 0 };
+  const c: Cursor = { doc, y: 0, opts };
+  const w = larguraPagina(doc);
 
   const nomeMembro = (id: string | null) =>
     id ? (dados.membros.find((m) => m.id === id)?.nome ?? "—") : "—";
@@ -274,31 +540,55 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
   const coorte = coorteFechamento(polosResp, periodo, hoje);
   const base = composicaoBase(polosResp, periodo);
 
-  // --- Cabeçalho ---
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(20);
-  doc.text("Relatório de Expansão — Sistema Expansão", MARGEM, 16);
-
+  // --- Capa / cabeçalho principal ---
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(
-    [
-      `Período: ${opts.periodoLabel}    Visão: ${opts.escopoLabel}`,
-      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
-    ],
-    MARGEM,
-    24,
-  );
-  c.y = 38;
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text("SISTEMA EXPANSÃO", MARGEM, 18);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(21);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text("Relatório de Expansão", MARGEM, 28);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...TEXT_FAINT);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, w - MARGEM, 18, { align: "right" });
+
+  // Chips de Período / Visão
+  const chipY = 36;
+  const chipH = 14;
+  const chipW = (w - MARGEM * 2 - 6) / 2;
+  [
+    { label: "PERÍODO", valor: opts.periodoLabel },
+    { label: "VISÃO", valor: opts.escopoLabel },
+  ].forEach((chip, i) => {
+    const x = MARGEM + i * (chipW + 6);
+    doc.setFillColor(...SURFACE);
+    doc.roundedRect(x, chipY, chipW, chipH, 2, 2, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.6);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(chip.label, x + 5, chipY + 5.5);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(chip.valor, x + 5, chipY + 11);
+  });
+
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.4);
+  doc.line(MARGEM, 56, w - MARGEM, 56);
+
+  c.y = 66;
 
   const inclui = (s: SecaoRelatorio) => secoes.includes(s);
 
   // --- Resumo ---
   if (inclui("resumo")) {
-    tituloSecao(c, "Resumo do período");
-    grade(c, [
+    tituloSecao(c, "Resumo do período", "Todos os indicadores em números");
+    kpis(c, [
       {
         label: "Reuniões realizadas",
         valor: String(coorte.realizadas),
@@ -369,21 +659,54 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
 
     const totalMeta = linhas.reduce((s, r) => s + r.meta, 0);
     const totalReal = linhas.reduce((s, r) => s + r.realizado, 0);
+    const totalPct = totalMeta > 0 ? (totalReal / totalMeta) * 100 : 0;
 
     tituloSecao(
       c,
       `Meta x realizado — ${rotuloMes(mesMeta)}`,
       "Realizado soma valor de ativação e de reativação no mês",
     );
+
+    if (totalMeta > 0) {
+      garantirEspaco(c, 20);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text("META DO PERÍODO", MARGEM, c.y);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.setTextColor(...TEXT_DARK);
+      doc.text(moeda(totalMeta), MARGEM, c.y + 7);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text(
+        `Realizado: ${moeda(totalReal)}   ·   ${pct(totalPct)} atingido`,
+        MARGEM + 62,
+        c.y + 7,
+      );
+      barraProgresso(
+        doc,
+        MARGEM,
+        c.y + 11,
+        w - MARGEM * 2,
+        3,
+        totalPct,
+        totalPct >= 100 ? SUCCESS : BRAND,
+      );
+      c.y += 20;
+    }
+
     tabela(
       c,
-      ["Membro", "Meta", "Realizado", "% da meta", "Falta"],
+      ["Membro", "Meta", "Realizado", "% da meta", "Progresso", "Falta"],
       [
         ...linhas.map((r) => [
           r.nome,
           r.meta > 0 ? moeda(r.meta) : "Sem meta",
           moeda(r.realizado),
           r.meta > 0 ? pct(r.pct) : "—",
+          "",
           r.meta > 0 ? moeda(Math.max(r.meta - r.realizado, 0)) : "—",
         ]),
         ...(linhas.length > 0
@@ -392,12 +715,33 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
                 "TOTAL",
                 moeda(totalMeta),
                 moeda(totalReal),
-                totalMeta > 0 ? pct((totalReal / totalMeta) * 100) : "—",
+                totalMeta > 0 ? pct(totalPct) : "—",
+                "",
                 totalMeta > 0 ? moeda(Math.max(totalMeta - totalReal, 0)) : "—",
               ],
             ]
           : []),
       ],
+      {
+        vazio: "Nenhum membro com meta ou resultado neste mês.",
+        celula: (d) => {
+          if (d.section !== "body" || d.column.index !== 4) return;
+          const isTotal = d.row.index === linhas.length;
+          const linha = isTotal ? { meta: totalMeta, pct: totalPct } : linhas[d.row.index];
+          if (!linha || linha.meta <= 0) return;
+          barraNaCelula(
+            doc,
+            d.cell.x + 1.5,
+            d.cell.y,
+            d.cell.width - 3,
+            d.cell.height,
+            Math.round(Math.min(linha.pct, 100)),
+            100,
+            linha.pct >= 100 ? SUCCESS : BRAND,
+            null,
+          );
+        },
+      },
     );
   }
 
@@ -409,10 +753,20 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       )
       .sort((a, b) => (a.data_reuniao ?? "").localeCompare(b.data_reuniao ?? ""));
 
-    tituloSecao(
+    tituloSecao(c, "Reuniões realizadas");
+    kpis(
       c,
-      "Reuniões realizadas",
-      `${coorte.realizadas} realizadas · ${coorte.fechadas} fecharam · ${coorte.perdidas} perdidas · ${coorte.emAberto} em aberto · taxa de fechamento ${coorte.realizadas > 0 ? pct(coorte.pct) : "—"}`,
+      [
+        { label: "Realizadas", valor: String(coorte.realizadas) },
+        { label: "Fecharam", valor: String(coorte.fechadas) },
+        { label: "Perdidas", valor: String(coorte.perdidas) },
+        { label: "Em aberto", valor: String(coorte.emAberto) },
+        {
+          label: "Taxa de fechamento",
+          valor: coorte.realizadas > 0 ? pct(coorte.pct) : "—",
+        },
+      ],
+      5,
     );
     tabela(
       c,
@@ -426,6 +780,11 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         moeda(p.faturamento),
         p.data_ativacao ? "Fechou" : p.situacao === "inativo" ? "Perdida" : "Em aberto",
       ]),
+      {
+        vazio: "Não houve reuniões realizadas no período selecionado.",
+        pillCol: 6,
+        pillCor: (v) => DESFECHO_COR[v],
+      },
     );
   }
 
@@ -435,10 +794,15 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((p) => dentroDoPeriodo(p.data_ativacao, periodo))
       .sort((a, b) => (a.data_ativacao ?? "").localeCompare(b.data_ativacao ?? ""));
 
-    tituloSecao(
+    tituloSecao(c, "Ativações");
+    kpis(
       c,
-      "Ativações",
-      `${ativ.quantidade} ativações · ${moeda(ativ.valor)} · ticket médio ${moeda(ticketMedio(ativ))}`,
+      [
+        { label: "Quantidade", valor: String(ativ.quantidade) },
+        { label: "Valor", valor: moeda(ativ.valor) },
+        { label: "Ticket médio", valor: moeda(ticketMedio(ativ)) },
+      ],
+      3,
     );
     tabela(
       c,
@@ -452,6 +816,11 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         nomeMembro(p.responsavel_id),
         SITUACAO_LABEL[p.situacao] ?? p.situacao,
       ]),
+      {
+        vazio: "Não houve ativações no período selecionado.",
+        pillCol: 6,
+        pillCor: corPorLabelSituacao,
+      },
     );
   }
 
@@ -461,10 +830,15 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((p) => dentroDoPeriodo(p.data_reativacao, periodo))
       .sort((a, b) => (a.data_reativacao ?? "").localeCompare(b.data_reativacao ?? ""));
 
-    tituloSecao(
+    tituloSecao(c, "Reativações");
+    kpis(
       c,
-      "Reativações",
-      `${reat.quantidade} reativações · ${moeda(reat.valor)} · ticket médio ${moeda(ticketMedio(reat))}`,
+      [
+        { label: "Quantidade", valor: String(reat.quantidade) },
+        { label: "Valor", valor: moeda(reat.valor) },
+        { label: "Ticket médio", valor: moeda(ticketMedio(reat)) },
+      ],
+      3,
     );
     tabela(
       c,
@@ -478,6 +852,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         data(p.data_saida),
         p.motivo_saida ?? "—",
       ]),
+      { vazio: "Não houve reativações no período selecionado." },
     );
   }
 
@@ -489,10 +864,16 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((p) => esteveAtivoNoPeriodo(p, periodo))
       .sort((a, b) => a.nome.localeCompare(b.nome));
 
-    tituloSecao(
+    tituloSecao(c, "Polos ativos no período");
+    kpis(
       c,
-      "Polos ativos no período",
-      `${base.total} estiveram ativos · ${base.jaVinham} já vinham · +${base.entraram} entraram · −${base.sairam} saíram · ${base.aoFim} ao fim do período`,
+      [
+        { label: "Ao fim do período", valor: String(base.aoFim) },
+        { label: "Já estavam ativos", valor: String(base.jaVinham) },
+        { label: "Entraram", valor: `+${base.entraram}` },
+        { label: "Saíram", valor: `−${base.sairam}` },
+      ],
+      4,
     );
     tabela(
       c,
@@ -507,18 +888,23 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         moeda(p.valor_ativacao),
         SITUACAO_LABEL[p.situacao] ?? p.situacao,
       ]),
+      {
+        vazio: "Nenhum polo esteve ativo no período selecionado.",
+        pillCol: 7,
+        pillCor: corPorLabelSituacao,
+      },
     );
     if (base.semData > 0) {
-      garantirEspaco(c, 10);
+      garantirEspaco(c, 9);
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
-      doc.setTextColor(180, 100, 20);
+      doc.setFontSize(7.5);
+      doc.setTextColor(...WARNING);
       doc.text(
         `Atenção: ${base.semData} polo(s) com situação ativa mas sem data de ativação ficam fora deste corte por período.`,
         MARGEM,
         c.y,
       );
-      c.y += 10;
+      c.y += 9;
     }
   }
 
@@ -528,7 +914,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((p) => dentroDoPeriodo(p.enviado_comercial_em, periodo))
       .sort((a, b) => (a.enviado_comercial_em ?? "").localeCompare(b.enviado_comercial_em ?? ""));
 
-    tituloSecao(c, "Enviados ao comercial", `${lista.length} polos repassados no período`);
+    tituloSecao(c, "Enviados ao comercial", `${lista.length} polo(s) repassado(s) no período`);
     tabela(
       c,
       ["Polo", "Nível", "Contato", "Produto", "Enviado em", "Responsável"],
@@ -540,6 +926,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         data(p.enviado_comercial_em),
         nomeMembro(p.responsavel_id),
       ]),
+      { vazio: "Nenhum polo foi enviado ao comercial no período selecionado." },
     );
   }
 
@@ -549,7 +936,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((n) => dentroDoPeriodo(n.criado_em, periodo))
       .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
 
-    tituloSecao(c, "Negociações", `${lista.length} cadastradas no período`);
+    tituloSecao(c, "Negociações", `${lista.length} cadastrada(s) no período`);
     tabela(
       c,
       ["Nome", "Contato", "E-mail", "Funcionários", "Responsável", "Cadastrada em"],
@@ -561,6 +948,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         nomeMembro(n.responsavel_id),
         data(n.criado_em),
       ]),
+      { vazio: "Nenhuma negociação foi cadastrada no período selecionado." },
     );
   }
 
@@ -570,7 +958,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .filter((e) => dentroDoPeriodo(e.criado_em, periodo))
       .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
 
-    tituloSecao(c, "Escolas técnicas", `${lista.length} cadastradas no período`);
+    tituloSecao(c, "Escolas técnicas", `${lista.length} cadastrada(s) no período`);
     tabela(
       c,
       ["Nome", "Cidade", "Estado", "Cursos", "Responsável", "Cadastrada em"],
@@ -582,6 +970,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         nomeMembro(e.responsavel_id),
         data(e.criado_em),
       ]),
+      { vazio: "Nenhuma escola técnica foi cadastrada no período selecionado." },
     );
   }
 
@@ -591,15 +980,24 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       dentroDoPeriodo(a.criado_em, periodo),
     );
     const total = acompNoPeriodo.length;
+
     tituloSecao(c, "Funil de acompanhamento", "Clientes cadastrados no período, por etapa atual");
-    tabela(
-      c,
-      ["Etapa", "Clientes", "% do funil"],
-      Object.entries(ETAPA_LABEL).map(([etapa, label]) => {
-        const n = acompNoPeriodo.filter((a) => a.etapa === etapa).length;
-        return [label, String(n), total > 0 ? pct((n / total) * 100) : "—"];
-      }),
-    );
+
+    if (total === 0) {
+      estadoVazio(c, "Nenhum cliente no funil de acompanhamento.", "Funil vazio");
+    } else {
+      barrasHorizontais(
+        c,
+        ETAPA_ORDEM.map((etapa) => {
+          const n = acompNoPeriodo.filter((a) => a.etapa === etapa).length;
+          return {
+            label: ETAPA_LABEL[etapa],
+            valor: n,
+            display: `${n}  ·  ${pct((n / total) * 100)}`,
+          };
+        }),
+      );
+    }
   }
 
   // --- Evolução mensal ---
@@ -639,26 +1037,65 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     );
     const sBase = serieBaseAtiva(meses, polosResp);
 
-    const maxAtiv = Math.max(0, ...sAtiv.map((p) => p.total));
-    const maxReat = Math.max(0, ...sReat.map((p) => p.total));
+    const maxAtiv = Math.max(1, ...sAtiv.map((p) => p.total));
+    const maxReat = Math.max(1, ...sReat.map((p) => p.total));
 
     tituloSecao(c, "Evolução mensal", "Mês a mês, dentro do período selecionado");
-    tabela(
-      c,
-      ["Mês", "Ativações", "Reativações", "Valor de ativação", "Base ativa ao fim"],
-      meses.map((m, i) => [
-        m.nome,
-        // Marca o mês recorde para o número não precisar ser caçado a olho.
-        sAtiv[i].total > 0 && sAtiv[i].total === maxAtiv
-          ? `${sAtiv[i].total}  (recorde)`
-          : String(sAtiv[i].total),
-        sReat[i].total > 0 && sReat[i].total === maxReat
-          ? `${sReat[i].total}  (recorde)`
-          : String(sReat[i].total),
-        moeda(sValor[i].total),
-        String(sBase[i].total),
-      ]),
-    );
+
+    if (meses.length === 0) {
+      estadoVazio(c, "Nenhum mês cai dentro do período selecionado.", "Sem histórico");
+    } else {
+      autoTable(doc, {
+        startY: c.y,
+        head: [["Mês", "Ativações", "Reativações", "Valor de ativação", "Base ativa ao fim"]],
+        body: meses.map((m, i) => [m.nome, "", "", moeda(sValor[i].total), String(sBase[i].total)]),
+        styles: {
+          fontSize: 8.2,
+          cellPadding: 3,
+          lineColor: BORDER,
+          lineWidth: 0.2,
+          textColor: TEXT_DARK,
+        },
+        headStyles: { fillColor: BRAND, textColor: 255, fontStyle: "bold", fontSize: 7.8 },
+        alternateRowStyles: { fillColor: SURFACE },
+        margin: { left: MARGEM, right: MARGEM, top: HEADER_INTERNO_Y },
+        columnStyles: { 3: { halign: "right" }, 4: { halign: "right" } },
+        didDrawPage: (hook) => {
+          if (hook.pageNumber > 1) desenharHeaderInterno(doc, opts);
+        },
+        didDrawCell: (d) => {
+          if (d.section !== "body") return;
+          const i = d.row.index;
+          if (d.column.index === 1) {
+            const recorde = sAtiv[i].total > 0 && sAtiv[i].total === maxAtiv;
+            barraNaCelula(
+              doc,
+              d.cell.x + 2,
+              d.cell.y,
+              d.cell.width - 4,
+              d.cell.height,
+              sAtiv[i].total,
+              maxAtiv,
+              recorde ? SUCCESS : BRAND,
+            );
+          }
+          if (d.column.index === 2) {
+            const recorde = sReat[i].total > 0 && sReat[i].total === maxReat;
+            barraNaCelula(
+              doc,
+              d.cell.x + 2,
+              d.cell.y,
+              d.cell.width - 4,
+              d.cell.height,
+              sReat[i].total,
+              maxReat,
+              recorde ? SUCCESS : BRAND,
+            );
+          }
+        },
+      });
+      c.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 9;
+    }
   }
 
   // --- Tarefas ---
@@ -667,12 +1104,23 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       ? dados.tarefas.filter((t) => t.responsaveis.some((r) => r.id === escopoId))
       : dados.tarefas;
 
-    tituloSecao(c, "Tarefas", `${tarefasEscopo.length} tarefas no período e na visão selecionada`);
+    tituloSecao(c, "Tarefas", `${tarefasEscopo.length} tarefa(s) na visão selecionada`);
     if (tarefasEscopo.length === 0) {
-      tabela(c, ["Título"], []);
+      estadoVazio(c, "Não há tarefas para a visão selecionada.", "Nenhuma tarefa encontrada");
     } else {
+      const prazos = calcPrazos(tarefasEscopo);
+      kpis(
+        c,
+        [
+          { label: "Total", valor: String(tarefasEscopo.length) },
+          { label: "No prazo", valor: String(prazos.counts["no-prazo"]) },
+          { label: "Prestes a vencer", valor: String(prazos.counts.prestes) },
+          { label: "Expiradas", valor: String(prazos.counts.expirada) },
+        ],
+        4,
+      );
       garantirEspaco(c, 40);
-      const { finalY } = desenharTabelaTarefas(doc, tarefasEscopo, dados.clientesById, c.y);
+      const { finalY } = desenharTabelaTarefas(doc, tarefasEscopo, c.y);
       c.y = finalY + 14;
       // O bloco de prazos é alto (donut de raio 20 a partir de y+26).
       garantirEspaco(c, 60);
@@ -681,20 +1129,21 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     }
   }
 
-  // Numeração no rodapé: um relatório de várias seções vira um documento
-  // longo, e sem página impressa não dá pra conferir se veio tudo.
+  // Rodapé em todas as páginas: data de geração + numeração — um relatório de
+  // várias seções vira um documento longo, e sem isso não dá pra conferir se
+  // veio tudo nem quando foi gerado.
   const paginas = doc.getNumberOfPages();
+  const geradoEm = `Relatório gerado em ${new Date().toLocaleString("pt-BR")}`;
   for (let i = 1; i <= paginas; i++) {
     doc.setPage(i);
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.3);
+    doc.line(MARGEM, alturaPagina(doc) - 10, w - MARGEM, alturaPagina(doc) - 10);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(
-      `Página ${i} de ${paginas}`,
-      doc.internal.pageSize.getWidth() - MARGEM,
-      alturaPagina(doc) - 6,
-      { align: "right" },
-    );
+    doc.setFontSize(7.3);
+    doc.setTextColor(...TEXT_FAINT);
+    doc.text(geradoEm, MARGEM, alturaPagina(doc) - 6);
+    doc.text(`Página ${i} de ${paginas}`, w - MARGEM, alturaPagina(doc) - 6, { align: "right" });
   }
 
   doc.save(`relatorio-expansao-${new Date().toISOString().slice(0, 10)}.pdf`);

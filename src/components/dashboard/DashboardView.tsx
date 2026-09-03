@@ -373,9 +373,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     [tarefasEscopo],
   );
 
+  // O Admin não atende cliente: não deve aparecer como opção de visão nem nos
+  // seletores de membro do dashboard.
   const membrosOrdenados = useMemo(
-    () => [...membros].sort((a, b) => a.nome.localeCompare(b.nome)),
-    [membros],
+    () => [...membrosAtribuiveis].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [membrosAtribuiveis],
   );
   const [membroSelecionadoId, setMembroSelecionadoId] = useState<string>("");
   const membroSelecionado = membrosOrdenados.find((m) => m.id === membroSelecionadoId);

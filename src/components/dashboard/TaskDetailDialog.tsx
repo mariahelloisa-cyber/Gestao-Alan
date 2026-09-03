@@ -575,7 +575,7 @@ function ResponsavelPicker({
   atuais: { id: string; nome: string; iniciais: string }[];
   onChange: (arr: { id: string; nome: string; iniciais: string }[]) => void;
 }) {
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const toggle = (m: { id: string; nome: string; iniciais: string }) => {
     const exists = atuais.some((r) => r.id === m.id);
     onChange(
@@ -612,7 +612,7 @@ function ResponsavelPicker({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
-        {membros.map((m) => (
+        {membrosAtribuiveis.map((m) => (
           <DropdownMenuItem
             key={m.id}
             onClick={(e) => {

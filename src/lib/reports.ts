@@ -3,8 +3,8 @@ import autoTable from "jspdf-autotable";
 import { statusCor, prioridadeCor, type Status, type Prioridade, type Tarefa } from "./mock-data";
 import { calcPrazos, prazoColors, PRAZO_LABELS, type PrazoBucket } from "./productivity";
 
-const STATUS_COLUNA = 3;
-const PRIORIDADE_COLUNA = 4;
+const STATUS_COLUNA = 2;
+const PRIORIDADE_COLUNA = 3;
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -102,7 +102,6 @@ function desenharLegendaPrazos(
 export interface RelatorioFiltrosLabel {
   periodo: string;
   membro: string;
-  cliente: string;
 }
 
 function formatarData(iso: string | null | undefined): string {
@@ -116,7 +115,7 @@ function formatarData(iso: string | null | undefined): string {
 // conhecidas de antemão (em vez de deixar o autoTable calcular sozinho)
 // para dar pra medir com precisão quantas linhas o título/responsáveis vão
 // quebrar antes de desenhar a tabela de verdade.
-const LARGURAS_COLUNAS = [80, 26, 49, 28, 22, 19, 19] as const;
+const LARGURAS_COLUNAS = [96, 59, 28, 22, 19, 19] as const;
 
 /** Altura total (mm) que a tabela vai ocupar, medindo a quebra de linha real do jsPDF. */
 function medirAlturaTabela(
@@ -131,7 +130,7 @@ function medirAlturaTabela(
   doc.setFontSize(fontSize);
 
   const largTitulo = LARGURAS_COLUNAS[0] - cellPadding * 2;
-  const largResp = LARGURAS_COLUNAS[2] - cellPadding * 2;
+  const largResp = LARGURAS_COLUNAS[1] - cellPadding * 2;
 
   let altura = lineHeight + cellPadding * 2; // cabeçalho
   for (const t of tarefas) {
@@ -179,7 +178,6 @@ const MARGEM_INFERIOR = 10;
 export function desenharTabelaTarefas(
   doc: jsPDF,
   tarefas: Tarefa[],
-  clientesById: Map<string, string>,
   startY: number,
   alturaMaxima?: number,
 ): { finalY: number; coube: boolean } {
@@ -193,10 +191,9 @@ export function desenharTabelaTarefas(
 
   autoTable(doc, {
     startY,
-    head: [["Título", "Cliente", "Responsáveis", "Status", "Prioridade", "Prazo", "Concluído em"]],
+    head: [["Título", "Responsáveis", "Status", "Prioridade", "Prazo", "Concluído em"]],
     body: tarefas.map((t) => [
       t.titulo,
-      t.cliente_id ? (clientesById.get(t.cliente_id) ?? "—") : "—",
       t.responsaveis.map((r) => r.nome).join(", ") || "—",
       t.status,
       t.prioridade,
@@ -213,11 +210,10 @@ export function desenharTabelaTarefas(
     columnStyles: {
       0: { cellWidth: LARGURAS_COLUNAS[0] },
       1: { cellWidth: LARGURAS_COLUNAS[1] },
-      2: { cellWidth: LARGURAS_COLUNAS[2] },
-      [STATUS_COLUNA]: { cellWidth: LARGURAS_COLUNAS[3] },
-      [PRIORIDADE_COLUNA]: { cellWidth: LARGURAS_COLUNAS[4] },
+      [STATUS_COLUNA]: { cellWidth: LARGURAS_COLUNAS[2] },
+      [PRIORIDADE_COLUNA]: { cellWidth: LARGURAS_COLUNAS[3] },
+      4: { cellWidth: LARGURAS_COLUNAS[4] },
       5: { cellWidth: LARGURAS_COLUNAS[5] },
-      6: { cellWidth: LARGURAS_COLUNAS[6] },
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
@@ -300,11 +296,7 @@ export function desenharBlocoPrazos(doc: jsPDF, tarefas: Tarefa[], y: number) {
 }
 
 /** Gera e baixa um PDF com a lista de tarefas já filtrada, com os critérios usados no cabeçalho. */
-export function gerarRelatorioTarefasPDF(
-  tarefas: Tarefa[],
-  filtros: RelatorioFiltrosLabel,
-  clientesById: Map<string, string>,
-) {
+export function gerarRelatorioTarefasPDF(tarefas: Tarefa[], filtros: RelatorioFiltrosLabel) {
   const doc = new jsPDF({ orientation: "landscape" });
 
   doc.setFontSize(16);
@@ -313,7 +305,7 @@ export function gerarRelatorioTarefasPDF(
   doc.setFontSize(9);
   doc.setTextColor(100);
   const infoLinhas = [
-    `Período: ${filtros.periodo}    Membro: ${filtros.membro}    Cliente: ${filtros.cliente}`,
+    `Período: ${filtros.periodo}    Membro: ${filtros.membro}`,
     `Gerado em: ${new Date().toLocaleString("pt-BR")}    Total de tarefas: ${tarefas.length}`,
   ];
   doc.text(infoLinhas, 14, 24);
@@ -326,13 +318,7 @@ export function gerarRelatorioTarefasPDF(
   const pageHeight = doc.internal.pageSize.getHeight();
   const alturaDisponivelTabela = pageHeight - startY - RESERVADO_PRAZOS - MARGEM_INFERIOR;
 
-  const { finalY, coube } = desenharTabelaTarefas(
-    doc,
-    tarefas,
-    clientesById,
-    startY,
-    alturaDisponivelTabela,
-  );
+  const { finalY, coube } = desenharTabelaTarefas(doc, tarefas, startY, alturaDisponivelTabela);
 
   // Rede de segurança: só entra em cena em casos extremos (relatório com
   // tantas tarefas que nem no tamanho mínimo de fonte a tabela deixou espaço)

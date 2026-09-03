@@ -575,7 +575,7 @@ function ResponsavelPill({
   value: { id: string; nome: string; iniciais: string }[];
   onChange: (m: { id: string; nome: string; iniciais: string }[]) => void;
 }) {
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const toggle = (m: { id: string; nome: string; iniciais: string }) => {
     const exists = value.some((r) => r.id === m.id);
     onChange(exists ? value.filter((r) => r.id !== m.id) : [...value, m]);
@@ -612,7 +612,7 @@ function ResponsavelPill({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        {membros.map((m) => (
+        {membrosAtribuiveis.map((m) => (
           <DropdownMenuItem
             key={m.id}
             onClick={(e) => {

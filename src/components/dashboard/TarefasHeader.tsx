@@ -40,6 +40,7 @@ export function TarefasHeader({
   const {
     tarefas,
     membros,
+    membrosAtribuiveis,
     myId,
     myCargo,
     myNome,
@@ -206,7 +207,7 @@ export function TarefasHeader({
             <DropdownMenuItem onClick={() => setGeralMembroFilter("todos")} className="text-sm">
               Todos os Membros
             </DropdownMenuItem>
-            {membros.map((m) => (
+            {membrosAtribuiveis.map((m) => (
               <DropdownMenuItem
                 key={m.id}
                 onClick={() => setGeralMembroFilter(m.id)}
