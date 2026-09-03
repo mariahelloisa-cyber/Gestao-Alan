@@ -55,8 +55,22 @@ import {
   SlidersHorizontal,
   X,
   Briefcase,
+  Phone,
+  Mail,
+  GraduationCap,
+  Calendar,
+  DollarSign,
+  User,
+  FileText,
 } from "lucide-react";
 import { hojeIso } from "@/lib/polos-ui";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 import {
   formatarTelefone,
   formatarTelefoneSeAplicavel,
@@ -464,7 +478,11 @@ export function AtivacaoView() {
                 </TableRow>
               ) : (
                 polosFiltrados.map((p) => (
-                  <TableRow key={p.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => abrirVisualizar(p)}
+                  >
                     <TableCell className="pl-4">
                       <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
                     </TableCell>
@@ -497,7 +515,7 @@ export function AtivacaoView() {
                     <TableCell>
                       {membros.find((m) => m.id === p.responsavel_id)?.nome ?? "—"}
                     </TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -556,191 +574,246 @@ export function AtivacaoView() {
 
       {/* Cadastrar / editar / visualizar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {viewOnly ? "Detalhes do polo" : editId ? "Editar polo" : "Novo polo"}
-            </DialogTitle>
-            <DialogDescription>Preencha os dados de ativação do polo.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Nível</Label>
-              <RadioGroup
-                value={form.nivel}
-                onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
-                disabled={viewOnly}
-                className="flex items-center gap-4"
-              >
-                {(["N1", "N2", "N3"] as const).map((n) => (
-                  <label key={n} className="flex items-center gap-1.5 text-sm">
-                    <RadioGroupItem value={n} id={`nivel-${n}`} />
-                    {n}
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="polo-nome">Nome do polo</Label>
-              <Input
-                id="polo-nome"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                disabled={viewOnly}
-                autoFocus
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          {viewOnly ? (
+            <>
+              <DetailHeader
+                icon={Building2}
+                title="Detalhes do polo"
+                subtitle="Informações completas do polo selecionado"
               />
-            </div>
+              <div className="space-y-4">
+                <DetailHighlight>
+                  <DetailHighlightItem label="Nível">
+                    <Badge className={NIVEL_BADGE[form.nivel]}>{form.nivel}</Badge>
+                  </DetailHighlightItem>
+                  <DetailHighlightItem label="Nome do polo">
+                    <p className="text-lg font-semibold">{form.nome}</p>
+                  </DetailHighlightItem>
+                </DetailHighlight>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="polo-contato">Contato</Label>
-              <Input
-                id="polo-contato"
-                {...TELEFONE_INPUT_PROPS}
-                value={form.contato}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
-                }
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Phone} title="Informações de contato">
+                  <DetailField icon={Phone} label="Contato">
+                    {form.contato || "—"}
+                  </DetailField>
+                  <DetailField icon={Mail} label="E-mail">
+                    {form.email || "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="polo-email">E-mail</Label>
-              <Input
-                id="polo-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={GraduationCap} title="Informações do produto">
+                  <DetailField icon={GraduationCap} label="Produto">
+                    {form.produto || "—"}
+                  </DetailField>
+                  <DetailField icon={User} label="Situação">
+                    {form.situacao === "ativo" ? "Ativo" : "Reativado"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="polo-produto">Produto</Label>
-              <Input
-                id="polo-produto"
-                value={form.produto}
-                onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={DollarSign} title="Ativação e valores">
+                  <DetailField icon={Calendar} label="Data de ativação">
+                    {formatarData(form.data_ativacao || null)}
+                  </DetailField>
+                  <DetailField icon={DollarSign} label="Valor de ativação">
+                    {formatarValor(form.valor_ativacao ? Number(form.valor_ativacao) : null)}
+                  </DetailField>
+                  <DetailField icon={User} label="Responsável" full>
+                    {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="polo-data">Data de ativação</Label>
-              <Input
-                id="polo-data"
-                type="date"
-                value={form.data_ativacao}
-                onChange={(e) => setForm((f) => ({ ...f, data_ativacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Briefcase} title="Comercial">
+                  <div className="sm:col-span-2">
+                    {form.enviado_comercial_em ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <Briefcase className="h-3.5 w-3.5" />
+                        Enviado ao comercial em {formatarData(form.enviado_comercial_em)}
+                      </span>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Não enviado ao comercial.</p>
+                    )}
+                  </div>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="polo-valor">Valor de ativação (R$)</Label>
-              <Input
-                id="polo-valor"
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.valor_ativacao}
-                onChange={(e) => setForm((f) => ({ ...f, valor_ativacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                {form.observacao && (
+                  <DetailSection icon={FileText} title="Observação">
+                    <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
+                  </DetailSection>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Editar polo" : "Novo polo"}</DialogTitle>
+                <DialogDescription>Preencha os dados de ativação do polo.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Nível</Label>
+                  <RadioGroup
+                    value={form.nivel}
+                    onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
+                    className="flex items-center gap-4"
+                  >
+                    {(["N1", "N2", "N3"] as const).map((n) => (
+                      <label key={n} className="flex items-center gap-1.5 text-sm">
+                        <RadioGroupItem value={n} id={`nivel-${n}`} />
+                        {n}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Situação</Label>
-              <Select
-                value={form.situacao}
-                onValueChange={(v) => setForm((f) => ({ ...f, situacao: v as Situacao }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="reativado">Reativado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="polo-nome">Nome do polo</Label>
+                  <Input
+                    id="polo-nome"
+                    value={form.nome}
+                    onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Responsável</Label>
-              <Select
-                value={form.responsavel_id}
-                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {membros.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                      {m.cargo ? ` (${m.cargo})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="polo-contato">Contato</Label>
+                  <Input
+                    id="polo-contato"
+                    {...TELEFONE_INPUT_PROPS}
+                    value={form.contato}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                    }
+                  />
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="polo-obs">Observação</Label>
-              <Textarea
-                id="polo-obs"
-                rows={3}
-                value={form.observacao}
-                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="polo-email">E-mail</Label>
+                  <Input
+                    id="polo-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
 
-            {/* Envio ao comercial — marcador independente da situação: o polo
-                continua nesta lista e passa a aparecer também em Comercial. */}
-            <div className="space-y-2 border-t border-border pt-3 sm:col-span-2">
-              <Label>Comercial</Label>
-              {form.enviado_comercial_em ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400">
-                    <Briefcase className="h-3.5 w-3.5" />
-                    Enviado ao comercial em {formatarData(form.enviado_comercial_em)}
-                  </span>
-                  {!viewOnly && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-muted-foreground"
-                      onClick={() => setForm((f) => ({ ...f, enviado_comercial_em: "" }))}
-                    >
-                      Desfazer
-                    </Button>
+                <div className="space-y-1.5">
+                  <Label htmlFor="polo-produto">Produto</Label>
+                  <Input
+                    id="polo-produto"
+                    value={form.produto}
+                    onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="polo-data">Data de ativação</Label>
+                  <Input
+                    id="polo-data"
+                    type="date"
+                    value={form.data_ativacao}
+                    onChange={(e) => setForm((f) => ({ ...f, data_ativacao: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="polo-valor">Valor de ativação (R$)</Label>
+                  <Input
+                    id="polo-valor"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.valor_ativacao}
+                    onChange={(e) => setForm((f) => ({ ...f, valor_ativacao: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Situação</Label>
+                  <Select
+                    value={form.situacao}
+                    onValueChange={(v) => setForm((f) => ({ ...f, situacao: v as Situacao }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="reativado">Reativado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Responsável</Label>
+                  <Select
+                    value={form.responsavel_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {membros.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
+                          {m.cargo ? ` (${m.cargo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="polo-obs">Observação</Label>
+                  <Textarea
+                    id="polo-obs"
+                    rows={6}
+                    value={form.observacao}
+                    onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                  />
+                </div>
+
+                {/* Envio ao comercial — marcador independente da situação: o polo
+                    continua nesta lista e passa a aparecer também em Comercial. */}
+                <div className="space-y-2 border-t border-border pt-3 sm:col-span-2">
+                  <Label>Comercial</Label>
+                  {form.enviado_comercial_em ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <Briefcase className="h-3.5 w-3.5" />
+                        Enviado ao comercial em {formatarData(form.enviado_comercial_em)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground"
+                        onClick={() => setForm((f) => ({ ...f, enviado_comercial_em: "" }))}
+                      >
+                        Desfazer
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setForm((f) => ({ ...f, enviado_comercial_em: hojeIso() }))}
+                      >
+                        <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+                        Enviar para o comercial
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        O polo continua em Ativação e passa a aparecer também em Comercial.
+                      </span>
+                    </div>
                   )}
                 </div>
-              ) : viewOnly ? (
-                <p className="text-sm text-muted-foreground">Não enviado ao comercial.</p>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setForm((f) => ({ ...f, enviado_comercial_em: hojeIso() }))}
-                  >
-                    <Briefcase className="mr-1.5 h-3.5 w-3.5" />
-                    Enviar para o comercial
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    O polo continua em Ativação e passa a aparecer também em Comercial.
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
           <DialogFooter>
             {viewOnly ? (
               <Button variant="outline" onClick={() => setDialogOpen(false)}>

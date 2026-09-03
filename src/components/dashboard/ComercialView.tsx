@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { listPolos, createPolo, updatePolo } from "@/lib/polos.functions";
+import { listPolos, createPolo, updatePolo, deletePolo } from "@/lib/polos.functions";
 import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,31 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, Pencil, Eye, Search, Briefcase, Undo2, X } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Eye,
+  Search,
+  Briefcase,
+  Undo2,
+  Trash2,
+  X,
+  Phone,
+  Mail,
+  GraduationCap,
+  Calendar,
+  DollarSign,
+  User,
+  FileText,
+} from "lucide-react";
 import { formatarData, formatarValor, hojeIso, nivelBadgeStyle, type Nivel } from "@/lib/polos-ui";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 import {
   formatarTelefone,
   formatarTelefoneSeAplicavel,
@@ -105,6 +128,7 @@ export function ComercialView() {
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
+  const deleteFn = useServerFn(deletePolo);
 
   const {
     data: polos = [],
@@ -148,6 +172,7 @@ export function ComercialView() {
   const [viewOnly, setViewOnly] = useState(false);
   const [form, setForm] = useState<FormState>(FORM_VAZIO);
   const [removerAlvo, setRemoverAlvo] = useState<Polo | null>(null);
+  const [excluirAlvo, setExcluirAlvo] = useState<Polo | null>(null);
 
   const abrirNovo = () => {
     setEditId(null);
@@ -221,6 +246,17 @@ export function ComercialView() {
       invalidate();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao retirar do comercial."),
+  });
+
+  /** Apaga o polo permanentemente. */
+  const excluirMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Polo excluído.");
+      setExcluirAlvo(null);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir polo."),
   });
 
   const salvar = () => {
@@ -366,7 +402,11 @@ export function ComercialView() {
                 </TableRow>
               ) : (
                 polosFiltrados.map((p) => (
-                  <TableRow key={p.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => abrirVisualizar(p)}
+                  >
                     <TableCell className="pl-4">
                       <Badge style={nivelBadgeStyle(p.nivel as Nivel)}>{p.nivel}</Badge>
                     </TableCell>
@@ -385,7 +425,7 @@ export function ComercialView() {
                     <TableCell>
                       {membros.find((m) => m.id === p.responsavel_id)?.nome ?? "—"}
                     </TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -414,6 +454,15 @@ export function ComercialView() {
                         >
                           <Undo2 className="h-3.5 w-3.5" />
                         </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-red-500 hover:text-red-600"
+                          onClick={() => setExcluirAlvo(p)}
+                          title="Excluir polo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -427,163 +476,216 @@ export function ComercialView() {
       {/* Cadastrar / editar / visualizar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {viewOnly ? "Detalhes do polo" : editId ? "Editar polo" : "Novo polo"}
-            </DialogTitle>
-            <DialogDescription>
-              {editId
-                ? "Alterações aqui valem também na página de Ativação — é o mesmo cadastro."
-                : "O polo é cadastrado como ativo e já entra marcado como enviado ao comercial."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Nível</Label>
-              <RadioGroup
-                value={form.nivel}
-                onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
-                disabled={viewOnly}
-                className="flex items-center gap-4"
-              >
-                {(["N1", "N2", "N3"] as const).map((n) => (
-                  <label key={n} className="flex items-center gap-1.5 text-sm">
-                    <RadioGroupItem value={n} id={`com-nivel-${n}`} />
-                    {n}
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="com-nome">Nome do polo</Label>
-              <Input
-                id="com-nome"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                disabled={viewOnly}
-                autoFocus
+          {viewOnly ? (
+            <>
+              <DetailHeader
+                icon={Briefcase}
+                title="Detalhes do polo"
+                subtitle="Informações completas do polo selecionado"
               />
-            </div>
+              <div className="space-y-4">
+                <DetailHighlight>
+                  <DetailHighlightItem label="Nível">
+                    <Badge style={nivelBadgeStyle(form.nivel)}>{form.nivel}</Badge>
+                  </DetailHighlightItem>
+                  <DetailHighlightItem label="Nome do polo">
+                    <p className="text-lg font-semibold">{form.nome}</p>
+                  </DetailHighlightItem>
+                </DetailHighlight>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-contato">Contato</Label>
-              <Input
-                id="com-contato"
-                {...TELEFONE_INPUT_PROPS}
-                value={form.contato}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
-                }
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Phone} title="Informações de contato">
+                  <DetailField icon={Phone} label="Contato">
+                    {form.contato || "—"}
+                  </DetailField>
+                  <DetailField icon={Mail} label="E-mail">
+                    {form.email || "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-email">E-mail</Label>
-              <Input
-                id="com-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={GraduationCap} title="Informações do produto">
+                  <DetailField icon={GraduationCap} label="Produto">
+                    {form.produto || "—"}
+                  </DetailField>
+                  <DetailField icon={User} label="Situação">
+                    {form.situacao === "ativo" ? "Ativo" : "Reativado"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-produto">Produto</Label>
-              <Input
-                id="com-produto"
-                value={form.produto}
-                onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={DollarSign} title="Ativação e valores">
+                  <DetailField icon={Calendar} label="Data de ativação">
+                    {formatarData(form.data_ativacao || null)}
+                  </DetailField>
+                  <DetailField icon={DollarSign} label="Valor de ativação">
+                    {formatarValor(form.valor_ativacao ? Number(form.valor_ativacao) : null)}
+                  </DetailField>
+                  <DetailField icon={User} label="Responsável" full>
+                    {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-data">Data de ativação</Label>
-              <Input
-                id="com-data"
-                type="date"
-                value={form.data_ativacao}
-                onChange={(e) => setForm((f) => ({ ...f, data_ativacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Briefcase} title="Comercial">
+                  <DetailField icon={Calendar} label="Enviado ao comercial em" full>
+                    {formatarData(form.enviado_comercial_em || null)}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-valor">Valor de ativação (R$)</Label>
-              <Input
-                id="com-valor"
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.valor_ativacao}
-                onChange={(e) => setForm((f) => ({ ...f, valor_ativacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                {form.observacao && (
+                  <DetailSection icon={FileText} title="Observação">
+                    <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
+                  </DetailSection>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Editar polo" : "Novo polo"}</DialogTitle>
+                <DialogDescription>
+                  {editId
+                    ? "Alterações aqui valem também na página de Ativação — é o mesmo cadastro."
+                    : "O polo é cadastrado como ativo e já entra marcado como enviado ao comercial."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Nível</Label>
+                  <RadioGroup
+                    value={form.nivel}
+                    onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
+                    className="flex items-center gap-4"
+                  >
+                    {(["N1", "N2", "N3"] as const).map((n) => (
+                      <label key={n} className="flex items-center gap-1.5 text-sm">
+                        <RadioGroupItem value={n} id={`com-nivel-${n}`} />
+                        {n}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Situação</Label>
-              <Select
-                value={form.situacao}
-                onValueChange={(v) => setForm((f) => ({ ...f, situacao: v as Situacao }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="reativado">Reativado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="com-nome">Nome do polo</Label>
+                  <Input
+                    id="com-nome"
+                    value={form.nome}
+                    onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Responsável</Label>
-              <Select
-                value={form.responsavel_id}
-                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {membros.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                      {m.cargo ? ` (${m.cargo})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-contato">Contato</Label>
+                  <Input
+                    id="com-contato"
+                    {...TELEFONE_INPUT_PROPS}
+                    value={form.contato}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                    }
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="com-enviado">Enviado ao comercial em</Label>
-              <Input
-                id="com-enviado"
-                type="date"
-                value={form.enviado_comercial_em}
-                onChange={(e) => setForm((f) => ({ ...f, enviado_comercial_em: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-email">E-mail</Label>
+                  <Input
+                    id="com-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="com-obs">Observação</Label>
-              <Textarea
-                id="com-obs"
-                rows={3}
-                value={form.observacao}
-                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
-          </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-produto">Produto</Label>
+                  <Input
+                    id="com-produto"
+                    value={form.produto}
+                    onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-data">Data de ativação</Label>
+                  <Input
+                    id="com-data"
+                    type="date"
+                    value={form.data_ativacao}
+                    onChange={(e) => setForm((f) => ({ ...f, data_ativacao: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-valor">Valor de ativação (R$)</Label>
+                  <Input
+                    id="com-valor"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.valor_ativacao}
+                    onChange={(e) => setForm((f) => ({ ...f, valor_ativacao: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Situação</Label>
+                  <Select
+                    value={form.situacao}
+                    onValueChange={(v) => setForm((f) => ({ ...f, situacao: v as Situacao }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="reativado">Reativado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Responsável</Label>
+                  <Select
+                    value={form.responsavel_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {membros.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
+                          {m.cargo ? ` (${m.cargo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="com-enviado">Enviado ao comercial em</Label>
+                  <Input
+                    id="com-enviado"
+                    type="date"
+                    value={form.enviado_comercial_em}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, enviado_comercial_em: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="com-obs">Observação</Label>
+                  <Textarea
+                    id="com-obs"
+                    rows={3}
+                    value={form.observacao}
+                    onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
           <DialogFooter>
             {viewOnly ? (
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -620,6 +722,26 @@ export function ComercialView() {
               className="bg-amber-600 text-white hover:bg-amber-700"
             >
               Retirar do comercial
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!excluirAlvo} onOpenChange={(o) => !o && setExcluirAlvo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir "{excluirAlvo?.nome}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ação permanente. O polo será apagado por completo, inclusive de Ativação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => excluirAlvo && excluirMut.mutate(excluirAlvo.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

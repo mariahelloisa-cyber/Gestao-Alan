@@ -48,7 +48,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Eye, Search, GraduationCap, X } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  Search,
+  GraduationCap,
+  X,
+  Phone,
+  Mail,
+  MapPin,
+  Users,
+  FileText,
+} from "lucide-react";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 import {
   formatarTelefone,
   formatarTelefoneSeAplicavel,
@@ -290,7 +310,11 @@ export function EscolasTecnicasView() {
                 </TableRow>
               ) : (
                 escolasFiltradas.map((e) => (
-                  <TableRow key={e.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={e.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => abrirVisualizar(e)}
+                  >
                     <TableCell className="pl-4 font-medium">{e.nome}</TableCell>
                     <TableCell>
                       <div className="text-sm">{e.contato || "—"}</div>
@@ -309,7 +333,7 @@ export function EscolasTecnicasView() {
                     <TableCell>
                       {membros.find((m) => m.id === e.responsavel_id)?.nome ?? "—"}
                     </TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(evt) => evt.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -367,149 +391,200 @@ export function EscolasTecnicasView() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {viewOnly ? "Detalhes da escola" : editId ? "Editar escola" : "Nova escola"}
-            </DialogTitle>
-            <DialogDescription>Preencha os dados da escola técnica.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="esc-nome">Nome da empresa/escola</Label>
-              <Input
-                id="esc-nome"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                disabled={viewOnly}
-                autoFocus
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          {viewOnly ? (
+            <>
+              <DetailHeader
+                icon={GraduationCap}
+                title="Detalhes da escola"
+                subtitle="Informações completas da escola selecionada"
               />
-            </div>
+              <div className="space-y-4">
+                <DetailHighlight>
+                  <DetailHighlightItem label="Nome da empresa/escola">
+                    <p className="text-lg font-semibold">{form.nome}</p>
+                  </DetailHighlightItem>
+                </DetailHighlight>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="esc-contato">Contato</Label>
-              <Input
-                id="esc-contato"
-                {...TELEFONE_INPUT_PROPS}
-                value={form.contato}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
-                }
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Phone} title="Informações de contato">
+                  <DetailField icon={Phone} label="Contato">
+                    {form.contato || "—"}
+                  </DetailField>
+                  <DetailField icon={Mail} label="E-mail">
+                    {form.email || "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="esc-email">E-mail</Label>
-              <Input
-                id="esc-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={MapPin} title="Localização">
+                  <DetailField icon={MapPin} label="Estado">
+                    {form.estado || "—"}
+                  </DetailField>
+                  <DetailField icon={MapPin} label="Cidade">
+                    {form.cidade || "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="esc-estado">Estado</Label>
-              <Input
-                id="esc-estado"
-                value={form.estado}
-                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={GraduationCap} title="Cursos e responsáveis">
+                  <DetailField icon={GraduationCap} label="Cursos" full>
+                    {form.cursos.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {form.cursos.map((curso) => (
+                          <Badge
+                            key={curso}
+                            variant="secondary"
+                            className="bg-foreground text-background"
+                          >
+                            {curso}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      "Nenhum curso."
+                    )}
+                  </DetailField>
+                  <DetailField icon={Users} label="Responsável" full>
+                    {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="esc-cidade">Cidade</Label>
-              <Input
-                id="esc-cidade"
-                value={form.cidade}
-                onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="esc-curso">Cursos</Label>
-              {!viewOnly && (
-                <div className="flex gap-2">
+                {form.observacao && (
+                  <DetailSection icon={FileText} title="Observação">
+                    <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
+                  </DetailSection>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Editar escola" : "Nova escola"}</DialogTitle>
+                <DialogDescription>Preencha os dados da escola técnica.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="esc-nome">Nome da empresa/escola</Label>
                   <Input
-                    id="esc-curso"
-                    value={cursoInput}
-                    onChange={(e) => setCursoInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        adicionarCurso();
-                      }
-                    }}
-                    placeholder="Nome do curso"
+                    id="esc-nome"
+                    value={form.nome}
+                    onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                    autoFocus
                   />
-                  <Button type="button" variant="outline" onClick={adicionarCurso}>
-                    Adicionar
-                  </Button>
                 </div>
-              )}
-              {form.cursos.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {form.cursos.map((curso) => (
-                    <Badge
-                      key={curso}
-                      variant="secondary"
-                      className="gap-1 bg-foreground text-background"
-                    >
-                      {curso}
-                      {!viewOnly && (
-                        <button
-                          type="button"
-                          onClick={() => removerCurso(curso)}
-                          className="rounded-full hover:opacity-70"
-                          title={`Remover ${curso}`}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="esc-contato">Contato</Label>
+                  <Input
+                    id="esc-contato"
+                    {...TELEFONE_INPUT_PROPS}
+                    value={form.contato}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="esc-email">E-mail</Label>
+                  <Input
+                    id="esc-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="esc-estado">Estado</Label>
+                  <Input
+                    id="esc-estado"
+                    value={form.estado}
+                    onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="esc-cidade">Cidade</Label>
+                  <Input
+                    id="esc-cidade"
+                    value={form.cidade}
+                    onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="esc-curso">Cursos</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="esc-curso"
+                      value={cursoInput}
+                      onChange={(e) => setCursoInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          adicionarCurso();
+                        }
+                      }}
+                      placeholder="Nome do curso"
+                    />
+                    <Button type="button" variant="outline" onClick={adicionarCurso}>
+                      Adicionar
+                    </Button>
+                  </div>
+                  {form.cursos.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {form.cursos.map((curso) => (
+                        <Badge
+                          key={curso}
+                          variant="secondary"
+                          className="gap-1 bg-foreground text-background"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </Badge>
-                  ))}
+                          {curso}
+                          <button
+                            type="button"
+                            onClick={() => removerCurso(curso)}
+                            className="rounded-full hover:opacity-70"
+                            title={`Remover ${curso}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                viewOnly && <p className="pt-1 text-sm text-muted-foreground">Nenhum curso.</p>
-              )}
-            </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Responsável</Label>
-              <Select
-                value={form.responsavel_id}
-                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {membros.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                      {m.cargo ? ` (${m.cargo})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Responsável</Label>
+                  <Select
+                    value={form.responsavel_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {membros.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
+                          {m.cargo ? ` (${m.cargo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="esc-obs">Observação</Label>
-              <Textarea
-                id="esc-obs"
-                rows={4}
-                value={form.observacao}
-                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
-          </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="esc-obs">Observação</Label>
+                  <Textarea
+                    id="esc-obs"
+                    rows={6}
+                    value={form.observacao}
+                    onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
           <DialogFooter>
             {viewOnly ? (
               <Button variant="outline" onClick={() => setDialogOpen(false)}>

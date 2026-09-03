@@ -33,7 +33,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Eye, Search, Ban, Undo2, ExternalLink } from "lucide-react";
+import {
+  Trash2,
+  Eye,
+  Search,
+  Ban,
+  Undo2,
+  ExternalLink,
+  Phone,
+  Mail,
+  GraduationCap,
+  Calendar,
+  DollarSign,
+  FileText,
+  X,
+} from "lucide-react";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 
 type Nivel = "N1" | "N2" | "N3";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
@@ -196,7 +217,11 @@ export function InativosView() {
                 </TableRow>
               ) : (
                 polosFiltrados.map((p) => (
-                  <TableRow key={p.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => setVerAlvo(p)}
+                  >
                     <TableCell className="pl-4">
                       <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
                     </TableCell>
@@ -213,7 +238,7 @@ export function InativosView() {
                     <TableCell>{formatarData(p.data_reuniao)}</TableCell>
                     <TableCell>{formatarHorario(p.horario_reuniao)}</TableCell>
                     <TableCell>{formatarValor(p.faturamento)}</TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -272,70 +297,71 @@ export function InativosView() {
 
       {/* Visualizar */}
       <Dialog open={!!verAlvo} onOpenChange={(o) => !o && setVerAlvo(null)}>
-        <DialogContent className="grid max-h-[80vh] max-w-lg grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Detalhes do polo</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DetailHeader
+            icon={Ban}
+            title="Detalhes do polo"
+            subtitle="Informações completas do polo selecionado"
+          />
           {verAlvo && (
-            <div className="-mr-2 grid gap-x-4 gap-y-3 overflow-y-auto pr-2 text-sm sm:grid-cols-2">
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Nível</Label>
-                <p className="break-words">{verAlvo.nivel}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Nome</Label>
-                <p className="break-words">{verAlvo.nome}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Contato</Label>
-                <p className="break-words">{verAlvo.contato || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">E-mail</Label>
-                <p className="break-words">{verAlvo.email || "—"}</p>
-              </div>
-              <div className="min-w-0 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Produto</Label>
-                <p className="break-words">{verAlvo.produto || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Data da reunião</Label>
-                <p className="break-words">{formatarData(verAlvo.data_reuniao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Horário</Label>
-                <p className="break-words">{formatarHorario(verAlvo.horario_reuniao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Faturamento</Label>
-                <p className="break-words">{formatarValor(verAlvo.faturamento)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Link da reunião</Label>
-                {verAlvo.link_reuniao ? (
-                  <a
-                    href={verAlvo.link_reuniao}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 break-all underline underline-offset-2"
-                  >
-                    Abrir <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                ) : (
-                  <p>—</p>
-                )}
-              </div>
+            <div className="space-y-4">
+              <DetailHighlight>
+                <DetailHighlightItem label="Nível">
+                  <Badge className={NIVEL_BADGE[verAlvo.nivel as Nivel]}>{verAlvo.nivel}</Badge>
+                </DetailHighlightItem>
+                <DetailHighlightItem label="Nome do polo">
+                  <p className="text-lg font-semibold">{verAlvo.nome}</p>
+                </DetailHighlightItem>
+              </DetailHighlight>
+
+              <DetailSection icon={Phone} title="Informações de contato">
+                <DetailField icon={Phone} label="Contato">
+                  {verAlvo.contato || "—"}
+                </DetailField>
+                <DetailField icon={Mail} label="E-mail">
+                  {verAlvo.email || "—"}
+                </DetailField>
+              </DetailSection>
+
+              <DetailSection icon={Calendar} title="Informações da reunião">
+                <DetailField icon={GraduationCap} label="Produto" full>
+                  {verAlvo.produto || "—"}
+                </DetailField>
+                <DetailField icon={Calendar} label="Data da reunião">
+                  {formatarData(verAlvo.data_reuniao)}
+                </DetailField>
+                <DetailField icon={Calendar} label="Horário">
+                  {formatarHorario(verAlvo.horario_reuniao)}
+                </DetailField>
+                <DetailField icon={DollarSign} label="Faturamento">
+                  {formatarValor(verAlvo.faturamento)}
+                </DetailField>
+                <DetailField icon={ExternalLink} label="Link da reunião">
+                  {verAlvo.link_reuniao ? (
+                    <a
+                      href={verAlvo.link_reuniao}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1 underline underline-offset-2"
+                    >
+                      Abrir <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </DetailField>
+              </DetailSection>
+
               {verAlvo.observacao && (
-                <div className="min-w-0 sm:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Observação</Label>
-                  <p className="whitespace-pre-wrap break-words">{verAlvo.observacao}</p>
-                </div>
+                <DetailSection icon={FileText} title="Observação">
+                  <p className="whitespace-pre-wrap sm:col-span-2">{verAlvo.observacao}</p>
+                </DetailSection>
               )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerAlvo(null)}>
-              Fechar
+              <X className="mr-1.5 h-4 w-4" /> Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

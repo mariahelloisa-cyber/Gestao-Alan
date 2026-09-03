@@ -44,8 +44,30 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, Trash2, Eye, Search, RotateCcw, UserX } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Search,
+  RotateCcw,
+  UserX,
+  Phone,
+  Mail,
+  GraduationCap,
+  Calendar,
+  DollarSign,
+  User,
+  FileText,
+  X,
+} from "lucide-react";
 import { formatarTelefone, TELEFONE_INPUT_PROPS } from "@/lib/telefone";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 
 type Nivel = "N1" | "N2" | "N3";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
@@ -219,7 +241,7 @@ export function ReativacaoView() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reativação</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Polos inativados — dados de ativação, data e motivo da saída.
+            Polos reativados — dados de ativação, data e motivo da saída.
           </p>
         </div>
         <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
@@ -229,7 +251,7 @@ export function ReativacaoView() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
-          <p className="text-sm text-muted-foreground">Polos inativados</p>
+          <p className="text-sm text-muted-foreground">Polos reativados</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
             {polosDesligados.length}
           </p>
@@ -264,7 +286,6 @@ export function ReativacaoView() {
                 <TableHead className="text-muted-foreground">Contato</TableHead>
                 <TableHead className="text-muted-foreground">Produto</TableHead>
                 <TableHead className="text-muted-foreground">Ativação</TableHead>
-                <TableHead className="text-muted-foreground">Valor</TableHead>
                 <TableHead className="text-muted-foreground">Valor reativação</TableHead>
                 <TableHead className="text-muted-foreground">Reativação</TableHead>
                 <TableHead className="text-muted-foreground">Saída</TableHead>
@@ -277,20 +298,20 @@ export function ReativacaoView() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={12} className="py-10 text-center text-destructive">
                     Falha ao carregar:{" "}
                     {error instanceof Error ? error.message : "erro desconhecido"}
                   </TableCell>
                 </TableRow>
               ) : polosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="py-10 text-center text-muted-foreground">
                     {polosDesligados.length === 0 ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <UserX className="h-8 w-8 text-muted-foreground" />
@@ -303,7 +324,11 @@ export function ReativacaoView() {
                 </TableRow>
               ) : (
                 polosFiltrados.map((p) => (
-                  <TableRow key={p.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => setVerAlvo(p)}
+                  >
                     <TableCell className="pl-4">
                       <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
                     </TableCell>
@@ -318,7 +343,6 @@ export function ReativacaoView() {
                       </div>
                     </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
-                    <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
                     <TableCell>{formatarValor(p.valor_reativacao)}</TableCell>
                     <TableCell>{formatarData(p.data_reativacao)}</TableCell>
                     <TableCell>{formatarData(p.data_saida)}</TableCell>
@@ -327,7 +351,7 @@ export function ReativacaoView() {
                     </TableCell>
                     <TableCell>{nomeMembro(p.responsavel_id)}</TableCell>
                     <TableCell>{nomeMembro(p.reativado_por)}</TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -542,75 +566,75 @@ export function ReativacaoView() {
 
       {/* Visualizar */}
       <Dialog open={!!verAlvo} onOpenChange={(o) => !o && setVerAlvo(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalhes do polo</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DetailHeader
+            icon={RotateCcw}
+            title="Detalhes do polo"
+            subtitle="Informações completas do polo selecionado"
+          />
           {verAlvo && (
-            <div className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Nível</Label>
-                <p className="break-words">{verAlvo.nivel}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Nome</Label>
-                <p className="break-words">{verAlvo.nome}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Contato</Label>
-                <p className="break-words">{verAlvo.contato || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">E-mail</Label>
-                <p className="break-words">{verAlvo.email || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Produto</Label>
-                <p className="break-words">{verAlvo.produto || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Data de ativação</Label>
-                <p className="break-words">{formatarData(verAlvo.data_ativacao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Valor de ativação</Label>
-                <p className="break-words">{formatarValor(verAlvo.valor_ativacao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Valor de reativação</Label>
-                <p className="break-words">{formatarValor(verAlvo.valor_reativacao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Data de reativação</Label>
-                <p className="break-words">{formatarData(verAlvo.data_reativacao)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Data de saída</Label>
-                <p className="break-words">{formatarData(verAlvo.data_saida)}</p>
-              </div>
-              <div className="min-w-0 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Motivo da saída</Label>
-                <p className="whitespace-pre-wrap break-words">{verAlvo.motivo_saida || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Responsável</Label>
-                <p className="break-words">{nomeMembro(verAlvo.responsavel_id)}</p>
-              </div>
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Reativado por</Label>
-                <p className="break-words">{nomeMembro(verAlvo.reativado_por)}</p>
-              </div>
+            <div className="space-y-4">
+              <DetailHighlight>
+                <DetailHighlightItem label="Nível">
+                  <Badge className={NIVEL_BADGE[verAlvo.nivel as Nivel]}>{verAlvo.nivel}</Badge>
+                </DetailHighlightItem>
+                <DetailHighlightItem label="Nome do polo">
+                  <p className="text-lg font-semibold">{verAlvo.nome}</p>
+                </DetailHighlightItem>
+              </DetailHighlight>
+
+              <DetailSection icon={Phone} title="Informações de contato">
+                <DetailField icon={Phone} label="Contato">
+                  {verAlvo.contato || "—"}
+                </DetailField>
+                <DetailField icon={Mail} label="E-mail">
+                  {verAlvo.email || "—"}
+                </DetailField>
+              </DetailSection>
+
+              <DetailSection icon={GraduationCap} title="Informações do produto">
+                <DetailField icon={GraduationCap} label="Produto">
+                  {verAlvo.produto || "—"}
+                </DetailField>
+                <DetailField icon={Calendar} label="Data de ativação">
+                  {formatarData(verAlvo.data_ativacao)}
+                </DetailField>
+              </DetailSection>
+
+              <DetailSection icon={DollarSign} title="Reativação e valores">
+                <DetailField icon={DollarSign} label="Valor de reativação">
+                  {formatarValor(verAlvo.valor_reativacao)}
+                </DetailField>
+                <DetailField icon={Calendar} label="Data de reativação">
+                  {formatarData(verAlvo.data_reativacao)}
+                </DetailField>
+                <DetailField icon={Calendar} label="Data de saída">
+                  {formatarData(verAlvo.data_saida)}
+                </DetailField>
+              </DetailSection>
+
+              <DetailSection icon={UserX} title="Saída e responsáveis">
+                <DetailField icon={FileText} label="Motivo da saída" full>
+                  <p className="whitespace-pre-wrap">{verAlvo.motivo_saida || "—"}</p>
+                </DetailField>
+                <DetailField icon={User} label="Responsável">
+                  {nomeMembro(verAlvo.responsavel_id)}
+                </DetailField>
+                <DetailField icon={User} label="Reativado por">
+                  {nomeMembro(verAlvo.reativado_por)}
+                </DetailField>
+              </DetailSection>
+
               {verAlvo.observacao && (
-                <div className="min-w-0 sm:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Observação</Label>
-                  <p className="whitespace-pre-wrap break-words">{verAlvo.observacao}</p>
-                </div>
+                <DetailSection icon={FileText} title="Observação">
+                  <p className="whitespace-pre-wrap sm:col-span-2">{verAlvo.observacao}</p>
+                </DetailSection>
               )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerAlvo(null)}>
-              Fechar
+              <X className="mr-1.5 h-4 w-4" /> Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

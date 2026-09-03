@@ -400,33 +400,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         <ReportDialog apenasMinhas={apenasMinhas} />
       </div>
 
-      {/* 1. Expansão e funil — o retrato da carteira, sempre a empresa inteira */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Expansão</h2>
-          <p className="text-xs text-muted-foreground">
-            Polos, negociações, escolas técnicas e o funil de acompanhamento
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Polos ativos" value={inteiro(polosAtivos.length)} />
-          <StatTile label="Valor em ativação" value={formatarValor(valorAtivo)} />
-          <StatTile label="Negociações" value={inteiro(negociacoes.length)} />
-          <StatTile label="Escolas técnicas" value={inteiro(escolas.length)} />
-        </div>
-
-        <Card title="Funil de Acompanhamento">
-          {acompanhamentos.length > 0 ? (
-            <HorizontalBarChart rows={funilRows} />
-          ) : (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              Nenhum cliente no funil de acompanhamento ainda.
-            </div>
-          )}
-        </Card>
-      </section>
-
       {/* 2. Ação do dia */}
       <section className="space-y-3">
         <div>
@@ -482,6 +455,34 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           />
         </div>
       </section>
+
+      {/* 1. Expansão e funil — o retrato da carteira, sempre a empresa inteira */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Expansão</h2>
+          <p className="text-xs text-muted-foreground">
+            Polos, negociações, escolas técnicas e o funil de acompanhamento
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Polos ativos" value={inteiro(polosAtivos.length)} />
+          <StatTile label="Valor em ativação" value={formatarValor(valorAtivo)} />
+          <StatTile label="Negociações" value={inteiro(negociacoes.length)} />
+          <StatTile label="Escolas técnicas" value={inteiro(escolas.length)} />
+        </div>
+
+        <Card title="Funil de Acompanhamento">
+          {acompanhamentos.length > 0 ? (
+            <HorizontalBarChart rows={funilRows} />
+          ) : (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              Nenhum cliente no funil de acompanhamento ainda.
+            </div>
+          )}
+        </Card>
+      </section>
+
 
       {/* 3. Números do período */}
       <section className="space-y-3">

@@ -47,7 +47,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Eye, Search, Handshake, Users } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  Search,
+  Handshake,
+  Users,
+  Phone,
+  Mail,
+  FileText,
+} from "lucide-react";
+import {
+  DetailHeader,
+  DetailHighlight,
+  DetailHighlightItem,
+  DetailSection,
+  DetailField,
+} from "@/components/dashboard/detail-view";
 import {
   formatarTelefone,
   formatarTelefoneSeAplicavel,
@@ -260,7 +278,11 @@ export function NegociacoesView() {
                 </TableRow>
               ) : (
                 negociacoesFiltradas.map((n) => (
-                  <TableRow key={n.id} className="border-border hover:bg-accent/50">
+                  <TableRow
+                    key={n.id}
+                    className="cursor-pointer border-border hover:bg-accent/50"
+                    onClick={() => abrirVisualizar(n)}
+                  >
                     <TableCell className="pl-4 font-medium">{n.nome}</TableCell>
                     <TableCell>{n.contato || "—"}</TableCell>
                     <TableCell>{n.email || "—"}</TableCell>
@@ -280,7 +302,7 @@ export function NegociacoesView() {
                     <TableCell>
                       {membros.find((m) => m.id === n.responsavel_id)?.nome ?? "—"}
                     </TableCell>
-                    <TableCell className="pr-4">
+                    <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -338,98 +360,131 @@ export function NegociacoesView() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {viewOnly
-                ? "Detalhes da negociação"
-                : editId
-                  ? "Editar negociação"
-                  : "Nova negociação"}
-            </DialogTitle>
-            <DialogDescription>Preencha os dados da negociação.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="neg-nome">Nome da empresa/parceiro</Label>
-              <Input
-                id="neg-nome"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                disabled={viewOnly}
-                autoFocus
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          {viewOnly ? (
+            <>
+              <DetailHeader
+                icon={Handshake}
+                title="Detalhes da negociação"
+                subtitle="Informações completas da negociação selecionada"
               />
-            </div>
+              <div className="space-y-4">
+                <DetailHighlight>
+                  <DetailHighlightItem label="Nome da empresa/parceiro">
+                    <p className="text-lg font-semibold">{form.nome}</p>
+                  </DetailHighlightItem>
+                </DetailHighlight>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="neg-contato">Contato</Label>
-              <Input
-                id="neg-contato"
-                {...TELEFONE_INPUT_PROPS}
-                value={form.contato}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
-                }
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Phone} title="Informações de contato">
+                  <DetailField icon={Phone} label="Contato">
+                    {form.contato || "—"}
+                  </DetailField>
+                  <DetailField icon={Mail} label="E-mail">
+                    {form.email || "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="neg-email">E-mail</Label>
-              <Input
-                id="neg-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                <DetailSection icon={Users} title="Empresa e responsáveis">
+                  <DetailField icon={Users} label="Número de funcionários">
+                    {form.numero_funcionarios || "—"}
+                  </DetailField>
+                  <DetailField icon={Users} label="Responsável">
+                    {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
+                  </DetailField>
+                </DetailSection>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="neg-funcionarios">Número de funcionários</Label>
-              <Input
-                id="neg-funcionarios"
-                type="number"
-                min={0}
-                step="1"
-                value={form.numero_funcionarios}
-                onChange={(e) => setForm((f) => ({ ...f, numero_funcionarios: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
+                {form.observacao && (
+                  <DetailSection icon={FileText} title="Observação">
+                    <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
+                  </DetailSection>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Editar negociação" : "Nova negociação"}</DialogTitle>
+                <DialogDescription>Preencha os dados da negociação.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="neg-nome">Nome da empresa/parceiro</Label>
+                  <Input
+                    id="neg-nome"
+                    value={form.nome}
+                    onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Responsável</Label>
-              <Select
-                value={form.responsavel_id}
-                onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
-                disabled={viewOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {membros.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                      {m.cargo ? ` (${m.cargo})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="neg-contato">Contato</Label>
+                  <Input
+                    id="neg-contato"
+                    {...TELEFONE_INPUT_PROPS}
+                    value={form.contato}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                    }
+                  />
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="neg-obs">Observação</Label>
-              <Textarea
-                id="neg-obs"
-                rows={4}
-                value={form.observacao}
-                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
-                disabled={viewOnly}
-              />
-            </div>
-          </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="neg-email">E-mail</Label>
+                  <Input
+                    id="neg-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="neg-funcionarios">Número de funcionários</Label>
+                  <Input
+                    id="neg-funcionarios"
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={form.numero_funcionarios}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, numero_funcionarios: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Responsável</Label>
+                  <Select
+                    value={form.responsavel_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {membros.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
+                          {m.cargo ? ` (${m.cargo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="neg-obs">Observação</Label>
+                  <Textarea
+                    id="neg-obs"
+                    rows={6}
+                    value={form.observacao}
+                    onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
           <DialogFooter>
             {viewOnly ? (
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
