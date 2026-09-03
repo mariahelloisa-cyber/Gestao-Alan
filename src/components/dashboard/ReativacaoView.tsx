@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +61,7 @@ import {
   User,
   FileText,
   X,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   formatarTelefone,
@@ -135,6 +137,18 @@ function formatarData(d: string | null): string {
   return new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
+/** Mantém só dígitos e um separador decimal (vírgula ou ponto) enquanto digita. */
+function sanitizarValor(raw: string): string {
+  const limpo = raw.replace(/[^\d.,]/g, "");
+  const partes = limpo.split(/[.,]/);
+  if (partes.length <= 2) return limpo;
+  return `${partes[0]},${partes.slice(1).join("")}`;
+}
+
+function paraNumero(v: string): number {
+  return Number(v.replace(",", "."));
+}
+
 export function ReativacaoView() {
   const qc = useQueryClient();
   const { membros, membrosAtribuiveis } = useTasks();
@@ -158,14 +172,48 @@ export function ReativacaoView() {
   const polosDesligados = useMemo(() => polos.filter((p) => p.situacao === "desligado"), [polos]);
 
   const [busca, setBusca] = useState("");
+  const [filtroNivel, setFiltroNivel] = useState<"todos" | Nivel>("todos");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
+  const [valorMin, setValorMin] = useState("");
+  const [valorMax, setValorMax] = useState("");
+
+  const filtrosAvancadosAtivos = [
+    filtroNivel !== "todos",
+    !!dataDe,
+    !!dataAte,
+    !!valorMin,
+    !!valorMax,
+  ].filter(Boolean).length;
+
+  const limparFiltros = () => {
+    setFiltroNivel("todos");
+    setDataDe("");
+    setDataAte("");
+    setValorMin("");
+    setValorMax("");
+  };
+
   const polosFiltrados = useMemo(() => {
     const buscaNorm = busca.trim().toLowerCase();
-    if (!buscaNorm) return polosDesligados;
     return polosDesligados.filter((p) => {
-      const alvo = [p.nome, p.contato, p.email, p.produto].filter(Boolean).join(" ").toLowerCase();
-      return alvo.includes(buscaNorm);
+      if (filtroNivel !== "todos" && p.nivel !== filtroNivel) return false;
+      if (dataDe && (!p.data_ativacao || p.data_ativacao < dataDe)) return false;
+      if (dataAte && (!p.data_ativacao || p.data_ativacao > dataAte)) return false;
+      if (valorMin && (p.valor_reativacao == null || p.valor_reativacao < paraNumero(valorMin)))
+        return false;
+      if (valorMax && (p.valor_reativacao == null || p.valor_reativacao > paraNumero(valorMax)))
+        return false;
+      if (buscaNorm) {
+        const alvo = [p.nome, p.contato, p.email, p.produto]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!alvo.includes(buscaNorm)) return false;
+      }
+      return true;
     });
-  }, [polosDesligados, busca]);
+  }, [polosDesligados, busca, filtroNivel, dataDe, dataAte, valorMin, valorMax]);
 
   const nomeMembro = (id: string | null) => membros.find((m) => m.id === id)?.nome ?? "—";
 
@@ -294,8 +342,8 @@ export function ReativacaoView() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
-        <div className="border-b border-border p-4">
-          <div className="relative min-w-56">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+          <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={busca}
@@ -304,6 +352,88 @@ export function ReativacaoView() {
               className="rounded-full pl-9"
             />
           </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-1.5 rounded-full">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                Filtrar
+                {filtrosAvancadosAtivos > 0 && (
+                  <Badge className="ml-1 h-5 min-w-5 justify-center rounded-full bg-foreground px-1 text-background">
+                    {filtrosAvancadosAtivos}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 space-y-3" align="end">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nível</Label>
+                <Select
+                  value={filtroNivel}
+                  onValueChange={(v) => setFiltroNivel(v as "todos" | Nivel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="N1">N1</SelectItem>
+                    <SelectItem value="N2">N2</SelectItem>
+                    <SelectItem value="N3">N3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Ativação de</Label>
+                  <Input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">até</Label>
+                  <Input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="valor-min" className="text-xs text-muted-foreground">
+                    Valor mínimo
+                  </Label>
+                  <Input
+                    id="valor-min"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={valorMin}
+                    onChange={(e) => setValorMin(sanitizarValor(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="valor-max" className="text-xs text-muted-foreground">
+                    Valor máximo
+                  </Label>
+                  <Input
+                    id="valor-max"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={valorMax}
+                    onChange={(e) => setValorMax(sanitizarValor(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {filtrosAvancadosAtivos > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={limparFiltros}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="overflow-x-auto">
