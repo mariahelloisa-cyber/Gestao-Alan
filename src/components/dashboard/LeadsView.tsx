@@ -62,7 +62,7 @@ import {
   dentroDoPeriodo,
   type Periodo,
 } from "@/lib/productivity";
-import { atividadeLeads, coorteFechamento, filtrarPorEscopo } from "@/lib/dashboard-metrics";
+import { atividadeLeads, coorteConversao, filtrarPorEscopo } from "@/lib/dashboard-metrics";
 import { formatarData, hojeIso, type Nivel } from "@/lib/polos-ui";
 import {
   formatarTelefone,
@@ -178,8 +178,8 @@ export function LeadsView() {
     queryKey: ["metas-membros"],
     queryFn: () => listMetasFn(),
   });
-  // Os polos só entram para saber quais reuniões fecharam — o lead guarda o
-  // `polo_id`, e é no polo que a `data_ativacao` do fechamento é gravada.
+  // Os polos só entram para saber quais reuniões converteram — o lead guarda
+  // o `polo_id`, e é no polo que a `data_ativacao` da conversão é gravada.
   const { data: polos = [] } = useQuery({
     queryKey: ["polos-ativacao"],
     queryFn: () => listPolosFn(),
@@ -244,10 +244,10 @@ export function LeadsView() {
 
   const funil = useMemo(() => atividadeLeads(leadsDoEscopo, periodo), [leadsDoEscopo, periodo]);
 
-  // "Fecharam" não é uma métrica do Lead — é a mesma conta usada em toda a
+  // "Convertidos" não é uma métrica do Lead — é a mesma conta usada em toda a
   // Dashboard: polos que estavam em reunião (por `data_reuniao`) e viraram
   // ativação, tenham vindo de um Lead ou não. Contar pela data em que a
-  // reunião foi *marcada* faria a mesma reunião fechar aqui e não na
+  // reunião foi *marcada* faria a mesma reunião converter aqui e não na
   // Dashboard sempre que a reunião acontecesse num mês diferente do da
   // marcação.
   const polosDoEscopo = useMemo(
@@ -255,7 +255,7 @@ export function LeadsView() {
     [polos, membroFiltro],
   );
   const coorte = useMemo(
-    () => coorteFechamento(polosDoEscopo, periodo, hojeIso()),
+    () => coorteConversao(polosDoEscopo, periodo, hojeIso()),
     [polosDoEscopo, periodo],
   );
 
@@ -430,10 +430,10 @@ export function LeadsView() {
         {/* Mesma conta da Dashboard: polos que estavam em reunião e viraram
             ativação — não é uma métrica do Lead, então não tem meta diária. */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
-          <p className="text-sm text-muted-foreground">Fecharam</p>
+          <p className="text-sm text-muted-foreground">Convertidos</p>
           <div className="mt-1 flex items-baseline gap-2">
             <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-              {coorte.fechadas}
+              {coorte.convertidas}
             </p>
             {coorte.realizadas > 0 && (
               <p className="text-sm text-muted-foreground">
@@ -443,7 +443,7 @@ export function LeadsView() {
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {coorte.realizadas > 0
-              ? `${coorte.emAberto} em aberto · ${coorte.perdidas} não fecharam`
+              ? `${coorte.emAberto} em aberto · ${coorte.perdidas} não converteram`
               : "Nenhuma reunião realizada no período."}
           </p>
         </div>
@@ -716,7 +716,7 @@ export function LeadsView() {
           <DialogHeader>
             <DialogTitle>Reunião com {reuniaoAlvo?.nome_polo}</DialogTitle>
             <DialogDescription>
-              Ao salvar, o polo é criado na aba Reuniões e segue de lá para fechamento. Este lead
+              Ao salvar, o polo é criado na aba Reuniões e segue de lá para conversão. Este lead
               continua na lista, marcado como convertido.
             </DialogDescription>
           </DialogHeader>

@@ -135,47 +135,47 @@ export function composicaoBase(polos: PoloMetrica[], periodo: Periodo): Composic
   return { total, jaVinham: total - entraram, entraram, sairam, aoFim, semData };
 }
 
-// --- Coorte de fechamento --------------------------------------------------
+// --- Coorte de conversão ----------------------------------------------------
 
 export interface Coorte {
   /** Reuniões cuja data caiu no período e já passou. */
   realizadas: number;
   /** Dessas, quantas viraram polo ativo. */
-  fechadas: number;
+  convertidas: number;
   /** Ainda em aberto (seguem na etapa de reunião). */
   emAberto: number;
-  /** Foram para Inativos sem fechar. */
+  /** Foram para Inativos sem converter. */
   perdidas: number;
   /** 0–100. */
   pct: number;
 }
 
 /**
- * Taxa de fechamento por coorte: das reuniões *realizadas* no período, quantas
- * fecharam — mesmo que o fechamento tenha ocorrido depois.
+ * Taxa de conversão por coorte: das reuniões *realizadas* no período, quantas
+ * converteram — mesmo que a conversão tenha ocorrido depois.
  *
  * Medir "ativações do mês ÷ reuniões do mês" distorceria os dois meses sempre
- * que a reunião e o fechamento caíssem em meses diferentes.
+ * que a reunião e a conversão caíssem em meses diferentes.
  *
- * Uma reunião conta como fechada quando o polo tem `data_ativacao`: o campo é
- * gravado no fechamento e sobrevive a um desligamento posterior.
+ * Uma reunião conta como convertida quando o polo tem `data_ativacao`: o campo
+ * é gravado na conversão e sobrevive a um desligamento posterior.
  */
-export function coorteFechamento(polos: PoloMetrica[], periodo: Periodo, hoje: string): Coorte {
+export function coorteConversao(polos: PoloMetrica[], periodo: Periodo, hoje: string): Coorte {
   const realizadas = polos.filter((p) => {
     const d = dia(p.data_reuniao);
     return !!d && d <= hoje && dentroDoPeriodo(d, periodo);
   });
 
-  const fechadas = realizadas.filter((p) => !!p.data_ativacao).length;
+  const convertidas = realizadas.filter((p) => !!p.data_ativacao).length;
   const perdidas = realizadas.filter((p) => !p.data_ativacao && p.situacao === "inativo").length;
   const emAberto = realizadas.filter((p) => !p.data_ativacao && p.situacao === "reuniao").length;
 
   return {
     realizadas: realizadas.length,
-    fechadas,
+    convertidas,
     emAberto,
     perdidas,
-    pct: realizadas.length > 0 ? (fechadas / realizadas.length) * 100 : 0,
+    pct: realizadas.length > 0 ? (convertidas / realizadas.length) * 100 : 0,
   };
 }
 
@@ -357,10 +357,10 @@ export interface AtividadeLeads {
  * data em que a reunião foi marcada) — não pela data em que a reunião
  * efetivamente aconteceu.
  *
- * O fechamento **não** entra aqui: "fechou" é definido pelo mesmo critério do
- * resto do sistema — `coorteFechamento`, que olha os polos que estavam em
+ * A conversão **não** entra aqui: "converteu" é definido pelo mesmo critério
+ * do resto do sistema — `coorteConversao`, que olha os polos que estavam em
  * reunião e viraram ativação, independente de terem um Lead de origem. Medir
- * o fechamento a partir do Lead faria a mesma reunião contar como fechada
+ * a conversão a partir do Lead faria a mesma reunião contar como convertida
  * numa tela e não noutra, sempre que a data da reunião caísse num período
  * diferente da data em que o Lead foi marcado.
  */

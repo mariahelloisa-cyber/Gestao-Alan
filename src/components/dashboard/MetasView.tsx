@@ -6,7 +6,7 @@ import { useTasks } from "@/lib/tasks-store";
 import { listPolos } from "@/lib/polos.functions";
 import { listMetas, setMeta } from "@/lib/metas.functions";
 import { listLeads } from "@/lib/leads.functions";
-import { atividadeLeads, coorteFechamento } from "@/lib/dashboard-metrics";
+import { atividadeLeads, coorteConversao } from "@/lib/dashboard-metrics";
 import { resolverPeriodo, type PeriodoPreset } from "@/lib/productivity";
 import { hojeIso } from "@/lib/polos-ui";
 import { PeriodFilter } from "./PeriodFilter";
@@ -191,20 +191,20 @@ export function MetasView() {
 
       const leadsDoMembro = leads.filter((l) => l.responsavel_id === m.id);
       const funil = atividadeLeads(leadsDoMembro, periodoAtividade);
-      // "Fecharam" não é uma métrica do Lead — é a mesma conta da Dashboard:
+      // "Convertidos" não é uma métrica do Lead — é a mesma conta da Dashboard:
       // polos deste membro que estavam em reunião e viraram ativação. Contar
       // pela data em que o Lead foi marcado (em vez da data da reunião)
-      // faria a mesma reunião fechar aqui e não lá, sempre que ela caísse
+      // faria a mesma reunião converter aqui e não lá, sempre que ela caísse
       // num período diferente do da marcação.
       const polosDoMembro = polos.filter((p) => p.responsavel_id === m.id);
-      const coorte = coorteFechamento(polosDoMembro, periodoAtividade, hoje);
+      const coorte = coorteConversao(polosDoMembro, periodoAtividade, hoje);
       const metaLigacoesDia = metaDoMembro?.meta_ligacoes_dia ?? 0;
       const metaReunioesDia = metaDoMembro?.meta_reunioes_dia ?? 0;
 
       return {
         membro: m,
         // Ligar e marcar reunião é trabalho de Membro. O Supervisor conduz a
-        // reunião e fecha, então não entra na seção de atividade nem soma
+        // reunião e converte, então não entra na seção de atividade nem soma
         // meta diária — senão a meta do time subiria sem ninguém para cumpri-la.
         ehMembro: m.cargo === "Membro",
         // Vendas
@@ -217,8 +217,8 @@ export function MetasView() {
         ligacoes: funil.ligacoes,
         reunioesMarcadas: funil.reunioesMarcadas,
         reunioesRealizadas: coorte.realizadas,
-        fechadas: coorte.fechadas,
-        pctFechamento: coorte.pct,
+        convertidas: coorte.convertidas,
+        pctConversao: coorte.pct,
         metaLigacoesDia,
         metaReunioesDia,
       };
@@ -251,7 +251,7 @@ export function MetasView() {
   const soMembros = useMemo(() => noFiltro.filter((r) => r.ehMembro), [noFiltro]);
 
   const rankingAtividade = useMemo(
-    () => [...soMembros].sort((a, b) => b.ligacoes - a.ligacoes || b.fechadas - a.fechadas),
+    () => [...soMembros].sort((a, b) => b.ligacoes - a.ligacoes || b.convertidas - a.convertidas),
     [soMembros],
   );
 
@@ -261,16 +261,16 @@ export function MetasView() {
 
   const ligacoesEquipe = soMembros.reduce((s, r) => s + r.ligacoes, 0);
   const reunioesEquipe = soMembros.reduce((s, r) => s + r.reunioesMarcadas, 0);
-  // "Fecharam" soma pela mesma conta da Dashboard (reuniões realizadas ÷
-  // fechadas), não pelas reuniões marcadas via Lead — por isso o
+  // "Convertidos" soma pela mesma conta da Dashboard (reuniões realizadas ÷
+  // convertidas), não pelas reuniões marcadas via Lead — por isso o
   // denominador aqui é `reunioesRealizadas`, não `reunioesEquipe`.
   const reunioesRealizadasEquipe = soMembros.reduce((s, r) => s + r.reunioesRealizadas, 0);
-  const fechadasEquipe = soMembros.reduce((s, r) => s + r.fechadas, 0);
+  const convertidasEquipe = soMembros.reduce((s, r) => s + r.convertidas, 0);
   // Somar as metas diárias dá a meta diária do time — continua sendo por dia.
   const metaLigacoesDiaEquipe = soMembros.reduce((s, r) => s + r.metaLigacoesDia, 0);
   const metaReunioesDiaEquipe = soMembros.reduce((s, r) => s + r.metaReunioesDia, 0);
-  const pctFechamentoEquipe =
-    reunioesRealizadasEquipe > 0 ? (fechadasEquipe / reunioesRealizadasEquipe) * 100 : 0;
+  const pctConversaoEquipe =
+    reunioesRealizadasEquipe > 0 ? (convertidasEquipe / reunioesRealizadasEquipe) * 100 : 0;
 
   const abrirEditarMeta = (m: { id: string; nome: string; cargo?: string }) => {
     const atual = metasNoPeriodo.find((x) => x.usuario_id === m.id);
@@ -483,13 +483,13 @@ export function MetasView() {
           />
 
           {/* Mesma conta da Dashboard: polos que estavam em reunião e viraram
-              ativação. Sem meta: fechar não depende de quem ligou — quem
+              ativação. Sem meta: converter não depende de quem ligou — quem
               conduz a reunião é o supervisor. */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
-            <p className="text-sm text-muted-foreground">Fecharam</p>
+            <p className="text-sm text-muted-foreground">Convertidos</p>
             <div className="mt-1 flex items-baseline gap-2">
               <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-                {fechadasEquipe}
+                {convertidasEquipe}
               </p>
               {reunioesRealizadasEquipe > 0 && (
                 <p className="text-sm text-muted-foreground">
@@ -499,7 +499,7 @@ export function MetasView() {
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
               {reunioesRealizadasEquipe > 0
-                ? `${decimal(pctFechamentoEquipe)}% das reuniões realizadas no período`
+                ? `${decimal(pctConversaoEquipe)}% das reuniões realizadas no período`
                 : "Nenhuma reunião realizada no período."}
             </p>
           </div>
@@ -543,9 +543,9 @@ export function MetasView() {
                   <p className="text-xs text-muted-foreground">
                     {r.reunioesRealizadas > 0 ? (
                       <>
-                        <span className="font-medium text-foreground">{r.fechadas}</span> fecharam
-                        de {r.reunioesRealizadas} reuniões realizadas ({Math.round(r.pctFechamento)}
-                        %)
+                        <span className="font-medium text-foreground">{r.convertidas}</span>{" "}
+                        convertidas de {r.reunioesRealizadas} reuniões realizadas (
+                        {Math.round(r.pctConversao)}%)
                       </>
                     ) : (
                       "Nenhuma reunião realizada no período."

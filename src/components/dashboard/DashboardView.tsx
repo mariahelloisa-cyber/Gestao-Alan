@@ -46,7 +46,7 @@ import {
   atividadeLeads,
   composicaoBase,
   contarNoPeriodo,
-  coorteFechamento,
+  coorteConversao,
   filtrarPorEscopo,
   filtrarReativacoesPorEscopo,
   mesesEntre,
@@ -181,7 +181,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   // --- Prospecção — seção "Ligações e reuniões" -----------------------------
   // O trabalho do membro: ligar e marcar reunião. Conduzir a reunião é do
   // supervisor, então o meio do funil (reuniões realizadas) não entra aqui —
-  // só o fechamento.
+  // só a conversão.
   //
   // O filtro é livre (mês, mês anterior, período personalizado…) porque a
   // pergunta é "quanto saiu no recorte X". As metas de ligação e reunião são
@@ -191,13 +191,13 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     () => atividadeLeads(leadsEscopo, periodoProspeccao),
     [leadsEscopo, periodoProspeccao],
   );
-  // "Fecharam" não é uma métrica do Lead — é a mesma conta de "Números do
+  // "Convertidos" não é uma métrica do Lead — é a mesma conta de "Números do
   // período": polos que estavam em reunião (por `data_reuniao`) e viraram
   // ativação, tenham vindo de um Lead ou não. Contar pela data de marcação do
-  // Lead faria a mesma reunião fechar aqui e não lá, sempre que a reunião
+  // Lead faria a mesma reunião converter aqui e não lá, sempre que a reunião
   // acontecesse num mês diferente do da marcação.
   const coorteProsp = useMemo(
-    () => coorteFechamento(polosResp, periodoProspeccao, hoje),
+    () => coorteConversao(polosResp, periodoProspeccao, hoje),
     [polosResp, periodoProspeccao, hoje],
   );
   const mesProspeccao = periodoProspeccao.de.slice(0, 7);
@@ -223,7 +223,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const ativ = useMemo(() => ativacoes(polosResp, periodoNumeros), [polosResp, periodoNumeros]);
   const reat = useMemo(() => reativacoes(polosReat, periodoNumeros), [polosReat, periodoNumeros]);
   const coorte = useMemo(
-    () => coorteFechamento(polosResp, periodoNumeros, hoje),
+    () => coorteConversao(polosResp, periodoNumeros, hoje),
     [polosResp, periodoNumeros, hoje],
   );
   const base = useMemo(
@@ -592,7 +592,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </div>
       </section>
 
-      {/* Prospecção — o topo do funil que termina na taxa de fechamento */}
+      {/* Prospecção — o topo do funil que termina na taxa de conversão */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -634,8 +634,8 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
             onClick={ir({ tipo: "leads" })}
           />
           <MetricTile
-            label="Fecharam"
-            value={inteiro(coorteProsp.fechadas)}
+            label="Convertidos"
+            value={inteiro(coorteProsp.convertidas)}
             hint={
               coorteProsp.realizadas > 0
                 ? `${percentual(coorteProsp.pct)} das ${coorteProsp.realizadas} reuniões · ${coorteProsp.emAberto} em aberto`
@@ -646,15 +646,12 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </div>
       </section>
 
-
       {/* Expansão e funil — carteira e funil, sempre a empresa inteira */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Expansão</h2>
-            <p className="text-xs text-muted-foreground">
-              Carteira e funil de acompanhamento
-            </p>
+            <p className="text-xs text-muted-foreground">Carteira e funil de acompanhamento</p>
           </div>
           <PeriodFilter
             preset={filtroExpansao.preset}
@@ -722,11 +719,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
             onClick={ir({ tipo: "ativacao" })}
           />
           <MetricTile
-            label="Taxa de fechamento"
+            label="Taxa de Conversão"
             value={coorte.realizadas > 0 ? percentual(coorte.pct) : "—"}
             hint={
               coorte.realizadas > 0
-                ? `${coorte.fechadas} de ${coorte.realizadas} reuniões fecharam`
+                ? `${coorte.convertidas} de ${coorte.realizadas} reuniões converteram`
                 : "Sem reuniões no período"
             }
             onClick={ir({ tipo: "reunioes" })}

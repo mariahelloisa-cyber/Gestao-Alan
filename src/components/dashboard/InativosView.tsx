@@ -235,7 +235,7 @@ export function InativosView() {
       <header className="border-b border-border pb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Inativos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Polos que passaram pela reunião e não fecharam.
+          Polos que passaram pela reunião e não converteram.
         </p>
       </header>
 

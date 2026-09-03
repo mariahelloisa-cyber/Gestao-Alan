@@ -8,7 +8,7 @@ import {
   ativacoes,
   atividadeLeads,
   composicaoBase,
-  coorteFechamento,
+  coorteConversao,
   esteveAtivoNoPeriodo,
   filtrarPorEscopo,
   filtrarReativacoesPorEscopo,
@@ -52,7 +52,7 @@ export const SECOES: { id: SecaoRelatorio; label: string; descricao: string }[] 
   {
     id: "ligacoes",
     label: "Ligações e reuniões",
-    descricao: "Ligou, marcou e fechou, por membro",
+    descricao: "Ligou, marcou e converteu, por membro",
   },
   { id: "reunioes", label: "Reuniões realizadas", descricao: "Com o desfecho de cada uma" },
   { id: "ativacoes", label: "Ativações", descricao: "Novos polos no período" },
@@ -196,7 +196,7 @@ const SITUACAO_COR: Record<string, [number, number, number]> = {
 };
 
 const DESFECHO_COR: Record<string, [number, number, number]> = {
-  Fechou: [16, 185, 129],
+  Converteu: [16, 185, 129],
   Perdida: [239, 68, 68],
   "Em aberto": [217, 119, 6],
 };
@@ -566,7 +566,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
 
   const ativ = ativacoes(polosResp, periodo);
   const reat = reativacoes(polosReat, periodo);
-  const coorte = coorteFechamento(polosResp, periodo, hoje);
+  const coorte = coorteConversao(polosResp, periodo, hoje);
   const base = composicaoBase(polosResp, periodo);
 
   // --- Capa / cabeçalho principal ---
@@ -625,9 +625,9 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       },
       { label: "Ativações", valor: String(ativ.quantidade) },
       {
-        label: "Taxa de fechamento",
+        label: "Taxa de conversão",
         valor: coorte.realizadas > 0 ? pct(coorte.pct) : "—",
-        nota: coorte.realizadas > 0 ? `${coorte.fechadas} de ${coorte.realizadas}` : undefined,
+        nota: coorte.realizadas > 0 ? `${coorte.convertidas} de ${coorte.realizadas}` : undefined,
       },
       { label: "Valor de ativação", valor: moeda(ativ.valor) },
       { label: "Reativações", valor: String(reat.quantidade) },
@@ -782,13 +782,13 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     const metasDoMesLig = dados.metas.filter((m) => m.periodo === mesMetaLig);
 
     // Ligações e reuniões marcadas são métricas do Lead (coorte da própria
-    // ação); "fecharam" não é — é a mesma conta da seção "Meta x realizado"
+    // ação); "convertidos" não é — é a mesma conta da seção "Meta x realizado"
     // e do resumo: polos que estavam em reunião e viraram ativação, tenham
-    // vindo de um Lead ou não. Medir o fechamento pela data de marcação do
-    // Lead faria a mesma reunião fechar aqui e não nas outras seções, sempre
+    // vindo de um Lead ou não. Medir a conversão pela data de marcação do
+    // Lead faria a mesma reunião converter aqui e não nas outras seções, sempre
     // que a reunião acontecesse num mês diferente do da marcação.
     const funilTotal = atividadeLeads(leadsResp, periodo);
-    const coorteLig = coorteFechamento(polosResp, periodo, hoje);
+    const coorteLig = coorteConversao(polosResp, periodo, hoje);
 
     // Ligar é trabalho de Membro — o Supervisor conduz a reunião e não tem
     // meta de ligação, então nem ele nem o Admin (já fora de `dados.membros`)
@@ -799,7 +799,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         const leadsDoMembro = leadsResp.filter((l) => l.responsavel_id === m.id);
         const funil = atividadeLeads(leadsDoMembro, periodo);
         const polosDoMembro = dados.polos.filter((p) => p.responsavel_id === m.id);
-        const coorte = coorteFechamento(polosDoMembro, periodo, hoje);
+        const coorte = coorteConversao(polosDoMembro, periodo, hoje);
         const metaDoMembro = metasDoMesLig.find((x) => x.usuario_id === m.id);
         return {
           nome: m.nome,
@@ -808,8 +808,8 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
           ligacoes: funil.ligacoes,
           reunioesMarcadas: funil.reunioesMarcadas,
           reunioesRealizadas: coorte.realizadas,
-          fechadas: coorte.fechadas,
-          pctFechamento: coorte.pct,
+          convertidas: coorte.convertidas,
+          pctConversao: coorte.pct,
         };
       })
       .filter(
@@ -820,12 +820,12 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
           r.reunioesMarcadas > 0 ||
           r.reunioesRealizadas > 0,
       )
-      .sort((a, b) => b.ligacoes - a.ligacoes || b.fechadas - a.fechadas);
+      .sort((a, b) => b.ligacoes - a.ligacoes || b.convertidas - a.convertidas);
 
     tituloSecao(
       c,
       "Ligações e reuniões",
-      "Ligou e marcou — trabalho de quem tem cargo Membro. Metas são por dia; fechamento segue a mesma conta do resumo",
+      "Ligou e marcou — trabalho de quem tem cargo Membro. Metas são por dia; conversão segue a mesma conta do resumo",
     );
     kpis(
       c,
@@ -833,9 +833,9 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         { label: "Ligações", valor: String(funilTotal.ligacoes) },
         { label: "Reuniões marcadas", valor: String(funilTotal.reunioesMarcadas) },
         { label: "Reuniões realizadas", valor: String(coorteLig.realizadas) },
-        { label: "Fecharam", valor: String(coorteLig.fechadas) },
+        { label: "Convertidos", valor: String(coorteLig.convertidas) },
         {
-          label: "Taxa de fechamento",
+          label: "Taxa de conversão",
           valor: coorteLig.realizadas > 0 ? pct(coorteLig.pct) : "—",
         },
       ],
@@ -851,8 +851,8 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         "Meta reuniões/dia",
         "Reuniões marcadas",
         "Reuniões realizadas",
-        "Fecharam",
-        "% fechamento",
+        "Convertidos",
+        "% conversão",
       ],
       alvoLig.map((r) => [
         r.nome,
@@ -861,8 +861,8 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         r.metaReunioesDia > 0 ? `${r.metaReunioesDia}/dia` : "—",
         String(r.reunioesMarcadas),
         String(r.reunioesRealizadas),
-        String(r.fechadas),
-        r.reunioesRealizadas > 0 ? pct(r.pctFechamento) : "—",
+        String(r.convertidas),
+        r.reunioesRealizadas > 0 ? pct(r.pctConversao) : "—",
       ]),
       { vazio: "Nenhum membro com meta ou atividade de ligação neste período." },
     );
@@ -881,11 +881,11 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       c,
       [
         { label: "Realizadas", valor: String(coorte.realizadas) },
-        { label: "Fecharam", valor: String(coorte.fechadas) },
+        { label: "Convertidos", valor: String(coorte.convertidas) },
         { label: "Perdidas", valor: String(coorte.perdidas) },
         { label: "Em aberto", valor: String(coorte.emAberto) },
         {
-          label: "Taxa de fechamento",
+          label: "Taxa de Conversão",
           valor: coorte.realizadas > 0 ? pct(coorte.pct) : "—",
         },
       ],
@@ -901,7 +901,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         p.horario_reuniao ? p.horario_reuniao.slice(0, 5) : "—",
         nomeMembro(p.responsavel_id),
         moeda(p.faturamento),
-        p.data_ativacao ? "Fechou" : p.situacao === "inativo" ? "Perdida" : "Em aberto",
+        p.data_ativacao ? "Converteu" : p.situacao === "inativo" ? "Perdida" : "Em aberto",
       ]),
       {
         vazio: "Não houve reuniões realizadas no período selecionado.",

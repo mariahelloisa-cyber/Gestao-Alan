@@ -31,7 +31,7 @@ import { PERIODO_PRESETS, resolverPeriodo, type PeriodoPreset } from "@/lib/prod
 import { hojeIso } from "@/lib/polos-ui";
 import {
   ativacoes,
-  coorteFechamento,
+  coorteConversao,
   composicaoBase,
   filtrarPorEscopo,
   filtrarReativacoesPorEscopo,
@@ -181,7 +181,7 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
     const polosReat = filtrarReativacoesPorEscopo(polos, escopoId);
     const leadsResp = filtrarPorEscopo(leads, escopoId);
     return {
-      reunioes: coorteFechamento(polosResp, periodo, hojeIso()).realizadas,
+      reunioes: coorteConversao(polosResp, periodo, hojeIso()).realizadas,
       ativacoes: ativacoes(polosResp, periodo).quantidade,
       reativacoes: reativacoes(polosReat, periodo).quantidade,
       polosAtivos: composicaoBase(polosResp, periodo).aoFim,
