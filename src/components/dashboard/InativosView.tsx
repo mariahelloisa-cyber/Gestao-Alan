@@ -272,12 +272,12 @@ export function InativosView() {
 
       {/* Visualizar */}
       <Dialog open={!!verAlvo} onOpenChange={(o) => !o && setVerAlvo(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="grid max-h-[80vh] max-w-lg grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Detalhes do polo</DialogTitle>
           </DialogHeader>
           {verAlvo && (
-            <div className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+            <div className="-mr-2 grid gap-x-4 gap-y-3 overflow-y-auto pr-2 text-sm sm:grid-cols-2">
               <div className="min-w-0">
                 <Label className="text-xs text-muted-foreground">Nível</Label>
                 <p className="break-words">{verAlvo.nivel}</p>
