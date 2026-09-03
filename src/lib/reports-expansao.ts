@@ -89,6 +89,7 @@ export interface EscolaRelatorio {
 
 export interface AcompanhamentoRelatorio {
   etapa: string;
+  criado_em: string;
 }
 
 export interface MetaRelatorio {
@@ -586,13 +587,16 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
 
   // --- Funil ---
   if (inclui("funil")) {
-    const total = dados.acompanhamentos.length;
-    tituloSecao(c, "Funil de acompanhamento", "Situação atual, não filtrada por período");
+    const acompNoPeriodo = dados.acompanhamentos.filter((a) =>
+      dentroDoPeriodo(a.criado_em, periodo),
+    );
+    const total = acompNoPeriodo.length;
+    tituloSecao(c, "Funil de acompanhamento", "Clientes cadastrados no período, por etapa atual");
     tabela(
       c,
       ["Etapa", "Clientes", "% do funil"],
       Object.entries(ETAPA_LABEL).map(([etapa, label]) => {
-        const n = dados.acompanhamentos.filter((a) => a.etapa === etapa).length;
+        const n = acompNoPeriodo.filter((a) => a.etapa === etapa).length;
         return [label, String(n), total > 0 ? pct((n / total) * 100) : "—"];
       }),
     );
@@ -606,13 +610,20 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       .map((d) => d.slice(0, 7))
       .sort();
     const hojeMes = hoje.slice(0, 7);
-    const meses =
+    const mesesTotal =
       chaves.length === 0
         ? mesesEntre(hojeMes, hojeMes)
         : mesesEntre(
             chaves[0],
             hojeMes > chaves[chaves.length - 1] ? hojeMes : chaves[chaves.length - 1],
           );
+
+    // Janela do filtro de período — com "todo o período" (de/ate abertos),
+    // cobre o histórico inteiro, igual ao comportamento de antes desta seção
+    // respeitar o filtro.
+    const deMes = periodo.de.slice(0, 7);
+    const ateMes = periodo.ate.slice(0, 7);
+    const meses = mesesTotal.filter((m) => m.id >= deMes && m.id <= ateMes);
 
     const sAtiv = serieMensal(
       meses,
@@ -631,7 +642,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     const maxAtiv = Math.max(0, ...sAtiv.map((p) => p.total));
     const maxReat = Math.max(0, ...sReat.map((p) => p.total));
 
-    tituloSecao(c, "Evolução mensal", "Histórico completo — não segue o filtro de período");
+    tituloSecao(c, "Evolução mensal", "Mês a mês, dentro do período selecionado");
     tabela(
       c,
       ["Mês", "Ativações", "Reativações", "Valor de ativação", "Base ativa ao fim"],

@@ -63,7 +63,7 @@ import {
   User,
   FileText,
 } from "lucide-react";
-import { hojeIso } from "@/lib/polos-ui";
+import { hojeIso, nivelBadgeStyle } from "@/lib/polos-ui";
 import {
   DetailHeader,
   DetailHighlight,
@@ -148,15 +148,9 @@ function paraNumero(v: string): number {
   return Number(v.replace(",", "."));
 }
 
-const NIVEL_BADGE: Record<Nivel, string> = {
-  N1: "bg-foreground text-background",
-  N2: "bg-gray-500 text-white",
-  N3: "bg-gray-200 text-black",
-};
-
 export function AtivacaoView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
@@ -484,7 +478,7 @@ export function AtivacaoView() {
                     onClick={() => abrirVisualizar(p)}
                   >
                     <TableCell className="pl-4">
-                      <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
+                      <Badge style={nivelBadgeStyle(p.nivel as Nivel)}>{p.nivel}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-1.5">
@@ -585,7 +579,7 @@ export function AtivacaoView() {
               <div className="space-y-4">
                 <DetailHighlight>
                   <DetailHighlightItem label="Nível">
-                    <Badge className={NIVEL_BADGE[form.nivel]}>{form.nivel}</Badge>
+                    <Badge style={nivelBadgeStyle(form.nivel)}>{form.nivel}</Badge>
                   </DetailHighlightItem>
                   <DetailHighlightItem label="Nome do polo">
                     <p className="text-lg font-semibold">{form.nome}</p>
@@ -754,7 +748,7 @@ export function AtivacaoView() {
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {membros.map((m) => (
+                      {membrosAtribuiveis.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.nome}
                           {m.cargo ? ` (${m.cargo})` : ""}

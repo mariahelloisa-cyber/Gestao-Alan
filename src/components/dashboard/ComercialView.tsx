@@ -124,7 +124,7 @@ function poloParaForm(p: Polo): FormState {
 
 export function ComercialView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
@@ -652,7 +652,7 @@ export function ComercialView() {
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {membros.map((m) => (
+                      {membrosAtribuiveis.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.nome}
                           {m.cargo ? ` (${m.cargo})` : ""}

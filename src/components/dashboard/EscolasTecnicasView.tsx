@@ -114,7 +114,7 @@ function escolaParaForm(e: EscolaTecnica): FormState {
 
 export function EscolasTecnicasView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listEscolasTecnicas);
   const createFn = useServerFn(createEscolaTecnica);
   const updateFn = useServerFn(updateEscolaTecnica);
@@ -563,7 +563,7 @@ export function EscolasTecnicasView() {
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {membros.map((m) => (
+                      {membrosAtribuiveis.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.nome}
                           {m.cargo ? ` (${m.cargo})` : ""}

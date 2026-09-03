@@ -96,20 +96,28 @@ export function MemberProductivityBlock({
   );
 }
 
+/**
+ * `size="sm"` demota o tile para blocos secundários (retrato de carteira, não
+ * KPI de período) — número menor e sem sombra, para não competir com os KPIs.
+ */
 export function StatTile({
   label,
   value,
   accent,
+  size = "lg",
 }: {
   label: string;
   value: string;
   accent?: string;
+  size?: "lg" | "sm";
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card/80 p-4 shadow-sm">
+    <div
+      className={`rounded-xl border border-border bg-card/80 p-4 ${size === "lg" ? "shadow-sm" : ""}`}
+    >
       <div className="text-xs text-muted-foreground">{label}</div>
       <div
-        className="mt-1 text-2xl font-semibold tabular-nums text-foreground"
+        className={`mt-1 font-semibold tabular-nums text-foreground ${size === "lg" ? "text-2xl" : "text-lg"}`}
         style={accent ? { color: accent } : undefined}
       >
         {value}
@@ -277,7 +285,7 @@ export function Legend({
 export function ProgressoCard({ data }: { data: ReturnType<typeof calcStatus> }) {
   return (
     <Card title="Progresso">
-      <div className="flex items-center gap-8">
+      <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
         <Donut
           label="Tarefas"
           total={data.total}
@@ -335,7 +343,7 @@ export function HorizontalBarChart({
 
   return (
     <div>
-      <div className="grid grid-cols-[1fr_9rem] gap-x-3">
+      <div className="grid grid-cols-[1fr_minmax(5.5rem,9rem)] gap-x-3">
         <div className="relative">
           <div className="pointer-events-none absolute inset-0 flex justify-between">
             {Array.from({ length: marcas + 1 }).map((_, i) => (
@@ -374,7 +382,7 @@ export function HorizontalBarChart({
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-[1fr_9rem] gap-x-3">
+      <div className="grid grid-cols-[1fr_minmax(5.5rem,9rem)] gap-x-3">
         <div className="mt-1.5 flex justify-between text-[10px] tabular-nums text-muted-foreground">
           {Array.from({ length: marcas + 1 }).map((_, i) => (
             <span key={i}>{formatValue(Math.round(passo * i))}</span>
@@ -389,7 +397,7 @@ export function HorizontalBarChart({
 export function PrazosCard({ data }: { data: ReturnType<typeof calcPrazos> }) {
   return (
     <Card title="Prazos">
-      <div className="flex items-center gap-8">
+      <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
         <Donut
           label="Tarefas"
           total={data.total}

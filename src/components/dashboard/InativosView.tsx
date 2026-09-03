@@ -64,6 +64,7 @@ import {
   formatarTelefoneSeAplicavel,
   TELEFONE_INPUT_PROPS,
 } from "@/lib/telefone";
+import { nivelBadgeStyle } from "@/lib/polos-ui";
 
 type Nivel = "N1" | "N2" | "N3";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
@@ -110,12 +111,6 @@ function formatarHorario(h: string | null): string {
   if (!h) return "—";
   return h.slice(0, 5);
 }
-
-const NIVEL_BADGE: Record<Nivel, string> = {
-  N1: "bg-foreground text-background",
-  N2: "bg-gray-500 text-white",
-  N3: "bg-gray-200 text-black",
-};
 
 export function InativosView() {
   const qc = useQueryClient();
@@ -315,7 +310,7 @@ export function InativosView() {
                     onClick={() => setVerAlvo(p)}
                   >
                     <TableCell className="pl-4">
-                      <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
+                      <Badge style={nivelBadgeStyle(p.nivel as Nivel)}>{p.nivel}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">{p.nome}</TableCell>
                     <TableCell>
@@ -408,7 +403,7 @@ export function InativosView() {
             <div className="space-y-4">
               <DetailHighlight>
                 <DetailHighlightItem label="Nível">
-                  <Badge className={NIVEL_BADGE[verAlvo.nivel as Nivel]}>{verAlvo.nivel}</Badge>
+                  <Badge style={nivelBadgeStyle(verAlvo.nivel as Nivel)}>{verAlvo.nivel}</Badge>
                 </DetailHighlightItem>
                 <DetailHighlightItem label="Nome do polo">
                   <p className="text-lg font-semibold">{verAlvo.nome}</p>

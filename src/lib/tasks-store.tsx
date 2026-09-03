@@ -94,6 +94,8 @@ interface TasksCtx {
   tarefas: Tarefa[];
   clientes: Cliente[];
   membros: Membro[];
+  /** `membros` sem o Admin — para selects de responsável/meta, onde ele não é uma opção válida. */
+  membrosAtribuiveis: Membro[];
   planos: Plano[];
   transacoes: Transacao[];
   projetos: Projeto[];
@@ -209,6 +211,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const tarefas = (data?.tarefas ?? []) as Tarefa[];
   const clientes = (data?.clientes ?? []) as Cliente[];
   const membros = data?.membros ?? [];
+  // O Admin é só administrador do sistema: não atende cliente, então não deve
+  // aparecer como opção de responsável nem entrar em rankings/metas.
+  const membrosAtribuiveis = useMemo(
+    () => membros.filter((m) => m.cargo !== "Admin"),
+    [membros],
+  );
   const planos = (data?.planos ?? []) as Plano[];
   const transacoes = (data?.transacoes ?? []) as Transacao[];
   const projetos = (data?.projetos ?? []) as Projeto[];
@@ -556,6 +564,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       tarefas,
       clientes,
       membros,
+      membrosAtribuiveis,
       planos,
       transacoes,
       projetos,
@@ -609,6 +618,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       tarefas,
       clientes,
       membros,
+      membrosAtribuiveis,
       planos,
       transacoes,
       projetos,

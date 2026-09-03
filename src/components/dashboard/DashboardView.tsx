@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, CalendarClock, Clock, PauseCircle } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { useTasks, type WorkspaceView } from "@/lib/tasks-store";
 import { listAcompanhamentos } from "@/lib/acompanhamentos.functions";
 import { listPolos } from "@/lib/polos.functions";
@@ -33,6 +33,7 @@ import {
 import {
   calcPrazos,
   classificarPrazo,
+  dentroDoPeriodo,
   resolverPeriodo,
   type Periodo,
   type PeriodoPreset,
@@ -40,6 +41,7 @@ import {
 import { formatarValor, hojeIso, rotuloRelativo } from "@/lib/polos-ui";
 import {
   ativacoes,
+  ativoEm,
   composicaoBase,
   contarNoPeriodo,
   coorteFechamento,
@@ -51,7 +53,6 @@ import {
   serieMensal,
   serieMensalValor,
   ticketMedio,
-  SITUACOES_ATIVAS,
   type PontoMensal,
 } from "@/lib/dashboard-metrics";
 
@@ -102,23 +103,37 @@ function percentual(n: number): string {
   return `${n.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
 
-export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean } = {}) {
-  const { tarefas, myId, loading, membros, setWorkspace } = useTasks();
-  const hoje = hojeIso();
-
-  // --- Filtros globais ------------------------------------------------------
-  // Metade dos indicadores é "que eu fiz" e a outra metade é total; um seletor
-  // único evita duplicar cada tile em duas versões.
-  const [escopoSel, setEscopoSel] = useState<string>(TIME);
-  const escopoId = apenasMinhas ? myId || null : escopoSel === TIME ? null : escopoSel;
-
-  const [preset, setPreset] = useState<PeriodoPreset>("este-mes");
+/**
+ * Um filtro de período próprio para uma seção — cada bloco da dashboard tem
+ * o seu, em vez de um único filtro global que umas seções seguem e outras
+ * ignoram silenciosamente.
+ */
+function usePeriodoFiltro(padrao: PeriodoPreset) {
+  const [preset, setPreset] = useState<PeriodoPreset>(padrao);
   const [customDe, setCustomDe] = useState("");
   const [customAte, setCustomAte] = useState("");
   const periodo = useMemo(
     () => resolverPeriodo(preset, { de: customDe, ate: customAte }),
     [preset, customDe, customAte],
   );
+  return { preset, setPreset, customDe, customAte, setCustomDe, setCustomAte, periodo };
+}
+
+export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean } = {}) {
+  const { tarefas, myId, loading, membros, membrosAtribuiveis, setWorkspace } = useTasks();
+  const hoje = hojeIso();
+
+  // --- Escopo global ----------------------------------------------------
+  // Metade dos indicadores é "que eu fiz" e a outra metade é total; um seletor
+  // único evita duplicar cada tile em duas versões. O período, diferente do
+  // escopo, é filtrado seção a seção — cada bloco tem seu próprio filtro.
+  const [escopoSel, setEscopoSel] = useState<string>(TIME);
+  const escopoId = apenasMinhas ? myId || null : escopoSel === TIME ? null : escopoSel;
+
+  const filtroExpansao = usePeriodoFiltro("todos");
+  const filtroNumeros = usePeriodoFiltro("este-mes");
+  const filtroEvolucao = usePeriodoFiltro("todos");
+  const filtroProdutividade = usePeriodoFiltro("este-mes");
 
   // --- Dados ----------------------------------------------------------------
   const listAcompFn = useServerFn(listAcompanhamentos);
@@ -154,31 +169,35 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const polosResp = useMemo(() => filtrarPorEscopo(polos, escopoId), [polos, escopoId]);
   const polosReat = useMemo(() => filtrarReativacoesPorEscopo(polos, escopoId), [polos, escopoId]);
 
-  // --- Indicadores do período ----------------------------------------------
-  const ativ = useMemo(() => ativacoes(polosResp, periodo), [polosResp, periodo]);
-  const reat = useMemo(() => reativacoes(polosReat, periodo), [polosReat, periodo]);
+  // --- Indicadores do período — seção "Números do período" ------------------
+  const periodoNumeros = filtroNumeros.periodo;
+  const ativ = useMemo(() => ativacoes(polosResp, periodoNumeros), [polosResp, periodoNumeros]);
+  const reat = useMemo(() => reativacoes(polosReat, periodoNumeros), [polosReat, periodoNumeros]);
   const coorte = useMemo(
-    () => coorteFechamento(polosResp, periodo, hoje),
-    [polosResp, periodo, hoje],
+    () => coorteFechamento(polosResp, periodoNumeros, hoje),
+    [polosResp, periodoNumeros, hoje],
   );
-  const base = useMemo(() => composicaoBase(polosResp, periodo), [polosResp, periodo]);
+  const base = useMemo(
+    () => composicaoBase(polosResp, periodoNumeros),
+    [polosResp, periodoNumeros],
+  );
   const comercial = useMemo(
     () =>
       polosResp.filter(
         (p) =>
           p.enviado_comercial_em &&
-          p.enviado_comercial_em.slice(0, 10) >= periodo.de &&
-          p.enviado_comercial_em.slice(0, 10) <= periodo.ate,
+          p.enviado_comercial_em.slice(0, 10) >= periodoNumeros.de &&
+          p.enviado_comercial_em.slice(0, 10) <= periodoNumeros.ate,
       ).length,
-    [polosResp, periodo],
+    [polosResp, periodoNumeros],
   );
   const negociacoesEscopo = useMemo(
     () => filtrarPorEscopo(negociacoes, escopoId),
     [negociacoes, escopoId],
   );
   const escolasEscopo = useMemo(() => filtrarPorEscopo(escolas, escopoId), [escolas, escopoId]);
-  const negociacoesPeriodo = contarNoPeriodo(negociacoesEscopo, periodo);
-  const escolasPeriodo = contarNoPeriodo(escolasEscopo, periodo);
+  const negociacoesPeriodo = contarNoPeriodo(negociacoesEscopo, periodoNumeros);
+  const escolasPeriodo = contarNoPeriodo(escolasEscopo, periodoNumeros);
 
   /** Reuniões antigas, cadastradas antes de o campo Responsável existir. */
   const reunioesSemDono = useMemo(
@@ -186,29 +205,75 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     [polos],
   );
 
-  // --- Resultado do mês (independe do filtro de período selecionado) -------
+  // --- Resultado do mês + Meta — mês selecionável, começa no mês corrente ---
+  // Ritmo e projeção só fazem sentido dentro de um mês específico (a meta é
+  // mensal), então este bloco usa um seletor de mês em vez do filtro de
+  // período genérico das outras seções.
   const mesAtualKey = mesKeyAtual();
-  const mesAnteriorKey = useMemo(() => mesAnteriorA(mesAtualKey), [mesAtualKey]);
-  const periodoMesAtual = useMemo(() => periodoDoMes(mesAtualKey), [mesAtualKey]);
-  const periodoMesAnterior = useMemo(() => periodoDoMes(mesAnteriorKey), [mesAnteriorKey]);
+  const [mesFaixaKey, setMesFaixaKey] = useState(mesAtualKey);
+  const isMesFaixaAtual = mesFaixaKey === mesAtualKey;
+  const mesAnteriorFaixaKey = useMemo(() => mesAnteriorA(mesFaixaKey), [mesFaixaKey]);
+  const periodoMesFaixa = useMemo(() => periodoDoMes(mesFaixaKey), [mesFaixaKey]);
+  const periodoMesAnteriorFaixa = useMemo(
+    () => periodoDoMes(mesAnteriorFaixaKey),
+    [mesAnteriorFaixaKey],
+  );
 
-  const resultadoMesAtual = useMemo(
+  const resultadoMesFaixa = useMemo(
     () =>
-      ativacoes(polosResp, periodoMesAtual).valor + reativacoes(polosReat, periodoMesAtual).valor,
-    [polosResp, polosReat, periodoMesAtual],
+      ativacoes(polosResp, periodoMesFaixa).valor + reativacoes(polosReat, periodoMesFaixa).valor,
+    [polosResp, polosReat, periodoMesFaixa],
   );
-  const resultadoMesAnterior = useMemo(
+  const resultadoMesAnteriorFaixa = useMemo(
     () =>
-      ativacoes(polosResp, periodoMesAnterior).valor +
-      reativacoes(polosReat, periodoMesAnterior).valor,
-    [polosResp, polosReat, periodoMesAnterior],
+      ativacoes(polosResp, periodoMesAnteriorFaixa).valor +
+      reativacoes(polosReat, periodoMesAnteriorFaixa).valor,
+    [polosResp, polosReat, periodoMesAnteriorFaixa],
   );
-  const variacaoMesPct =
-    resultadoMesAnterior > 0
-      ? ((resultadoMesAtual - resultadoMesAnterior) / resultadoMesAnterior) * 100
+  const variacaoMesFaixaPct =
+    resultadoMesAnteriorFaixa > 0
+      ? ((resultadoMesFaixa - resultadoMesAnteriorFaixa) / resultadoMesAnteriorFaixa) * 100
       : null;
 
-  // --- Série mensal ---------------------------------------------------------
+  const metasDoMesFaixa = useMemo(
+    () => metas.filter((m) => m.periodo === mesFaixaKey),
+    [metas, mesFaixaKey],
+  );
+
+  const rankingMetas = useMemo(() => {
+    const alvo = escopoId
+      ? membrosAtribuiveis.filter((m) => m.id === escopoId)
+      : membrosAtribuiveis;
+    return alvo
+      .map((m) => {
+        // Realizado = ativação + reativação, conforme definido com o time.
+        const ativado = ativacoes(
+          polos.filter((p) => p.responsavel_id === m.id),
+          periodoMesFaixa,
+        ).valor;
+        const reativado = reativacoes(
+          polos.filter((p) => p.reativado_por === m.id),
+          periodoMesFaixa,
+        ).valor;
+        const realizado = ativado + reativado;
+        const meta = metasDoMesFaixa.find((x) => x.usuario_id === m.id)?.valor_meta ?? 0;
+        return {
+          membro: m,
+          realizado,
+          meta,
+          pct: meta > 0 ? (realizado / meta) * 100 : 0,
+        };
+      })
+      .filter((r) => r.meta > 0 || r.realizado > 0)
+      .sort((a, b) => b.pct - a.pct || b.realizado - a.realizado);
+  }, [membrosAtribuiveis, escopoId, polos, periodoMesFaixa, metasDoMesFaixa]);
+
+  const metaTime = rankingMetas.reduce((s, r) => s + r.meta, 0);
+
+  // --- Série mensal — seção "Evolução mensal" --------------------------------
+  // `meses`/as séries "Total" cobrem o histórico inteiro, sempre — é o que
+  // alimenta o recorde, que não pode sumir quando alguém filtra a seção.
+  // A "Janela", com o filtro próprio da seção, é o que os gráficos desenham.
   const meses = useMemo(() => {
     const chaves = polos
       .flatMap((p) => [p.data_ativacao, p.data_reativacao, p.data_saida])
@@ -222,7 +287,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     );
   }, [polos]);
 
-  const serieAtivacoes = useMemo(
+  const serieAtivacoesTotal = useMemo(
     () =>
       serieMensal(
         meses,
@@ -230,7 +295,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
       ),
     [meses, polosResp],
   );
-  const serieReativacoes = useMemo(
+  const serieReativacoesTotal = useMemo(
     () =>
       serieMensal(
         meses,
@@ -238,55 +303,45 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
       ),
     [meses, polosReat],
   );
+  const recordeAtivacoes = useMemo(() => mesRecorde(serieAtivacoesTotal), [serieAtivacoesTotal]);
+  const recordeReativacoes = useMemo(
+    () => mesRecorde(serieReativacoesTotal),
+    [serieReativacoesTotal],
+  );
+
+  const periodoEvolucao = filtroEvolucao.periodo;
+  // A janela do filtro, capada em 24 meses — senão anos de operação viram uma
+  // lista de barras ilegível quando alguém escolhe "todo o período".
+  const mesesJanela = useMemo(() => {
+    const de = periodoEvolucao.de.slice(0, 7);
+    const ate = periodoEvolucao.ate.slice(0, 7);
+    return meses.filter((m) => m.id >= de && m.id <= ate).slice(-24);
+  }, [meses, periodoEvolucao]);
+
+  const serieAtivacoes = useMemo(
+    () =>
+      serieMensal(
+        mesesJanela,
+        polosResp.map((p) => p.data_ativacao),
+      ),
+    [mesesJanela, polosResp],
+  );
+  const serieReativacoes = useMemo(
+    () =>
+      serieMensal(
+        mesesJanela,
+        polosReat.map((p) => p.data_reativacao),
+      ),
+    [mesesJanela, polosReat],
+  );
   const serieValor = useMemo(
     () =>
       serieMensalValor(
-        meses,
+        mesesJanela,
         polosResp.map((p) => ({ data: p.data_ativacao, valor: p.valor_ativacao })),
       ),
-    [meses, polosResp],
+    [mesesJanela, polosResp],
   );
-  // O recorde olha o histórico inteiro; os gráficos mostram só os últimos 24
-  // meses, senão anos de operação viram uma lista de barras ilegível.
-  const recordeAtivacoes = useMemo(() => mesRecorde(serieAtivacoes), [serieAtivacoes]);
-  const recordeReativacoes = useMemo(() => mesRecorde(serieReativacoes), [serieReativacoes]);
-  const JANELA_GRAFICO = -24;
-
-  // --- Meta x realizado -----------------------------------------------------
-  // A meta é mensal, então ela segue o mês do fim do período selecionado — e
-  // cai no mês corrente quando o filtro é "todo o período", que não tem mês.
-  const mesMeta = preset === "todos" ? mesKeyAtual() : periodo.ate.slice(0, 7);
-  const periodoMeta = useMemo(() => periodoDoMes(mesMeta), [mesMeta]);
-  const metasDoMes = useMemo(() => metas.filter((m) => m.periodo === mesMeta), [metas, mesMeta]);
-
-  const rankingMetas = useMemo(() => {
-    const alvo = escopoId ? membros.filter((m) => m.id === escopoId) : membros;
-    return alvo
-      .map((m) => {
-        // Realizado = ativação + reativação, conforme definido com o time.
-        const ativado = ativacoes(
-          polos.filter((p) => p.responsavel_id === m.id),
-          periodoMeta,
-        ).valor;
-        const reativado = reativacoes(
-          polos.filter((p) => p.reativado_por === m.id),
-          periodoMeta,
-        ).valor;
-        const realizado = ativado + reativado;
-        const meta = metasDoMes.find((x) => x.usuario_id === m.id)?.valor_meta ?? 0;
-        return {
-          membro: m,
-          realizado,
-          meta,
-          pct: meta > 0 ? (realizado / meta) * 100 : 0,
-        };
-      })
-      .filter((r) => r.meta > 0 || r.realizado > 0)
-      .sort((a, b) => b.pct - a.pct || b.realizado - a.realizado);
-  }, [membros, escopoId, polos, periodoMeta, metasDoMes]);
-
-  const metaTime = rankingMetas.reduce((s, r) => s + r.meta, 0);
-  const realizadoTime = rankingMetas.reduce((s, r) => s + r.realizado, 0);
 
   // --- Ação do dia ----------------------------------------------------------
   // Fora do filtro de período de propósito: este bloco responde "o que preciso
@@ -306,14 +361,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const reunioesSemana = emReuniao.filter(
     (p) => p.data_reuniao! > hoje && p.data_reuniao! <= daquiA7,
   );
-  const inativosParados = useMemo(() => {
-    const limite = new Date(`${hoje}T00:00:00`);
-    limite.setDate(limite.getDate() - 30);
-    const corte = limite.toISOString().slice(0, 10);
-    return polosResp.filter(
-      (p) => p.situacao === "inativo" && p.atualizado_em.slice(0, 10) < corte,
-    );
-  }, [polosResp, hoje]);
 
   // --- Tarefas (bloco mantido) ---------------------------------------------
   const todas = useMemo(() => tarefas.filter((t) => (t.tipo ?? "tarefa") === "tarefa"), [tarefas]);
@@ -343,11 +390,15 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const geralStatus = useMemo(() => calcStatus(todas), [todas]);
   const geralPrazos = useMemo(() => calcPrazos(todas), [todas]);
 
-  // Totais do bloco Expansão — sempre a empresa inteira, sem seguir o escopo
-  // nem o período: é o retrato da carteira hoje.
+  // Totais do bloco Expansão — sempre a empresa inteira, sem seguir o escopo,
+  // mas com filtro de período próprio: "polos ativos até o fim do período" em
+  // vez de "hoje". Com o preset padrão ("todo o período"), a data de corte
+  // cai em hoje e o retrato é idêntico ao de antes desta seção ser filtrável.
+  const periodoExpansao = filtroExpansao.periodo;
+  const dataCorteExpansao = periodoExpansao.ate > hoje ? hoje : periodoExpansao.ate;
   const polosAtivos = useMemo(
-    () => polos.filter((p) => SITUACOES_ATIVAS.includes(p.situacao as never)),
-    [polos],
+    () => polos.filter((p) => ativoEm(p, dataCorteExpansao)),
+    [polos, dataCorteExpansao],
   );
   const valorAtivo = useMemo(
     () => polosAtivos.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0),
@@ -359,9 +410,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
       ETAPA_ORDEM.map((etapa) => ({
         id: etapa,
         nome: ETAPA_LABEL[etapa],
-        total: acompanhamentos.filter((a) => a.etapa === etapa).length,
+        total: acompanhamentos.filter(
+          (a) => a.etapa === etapa && dentroDoPeriodo(a.criado_em, periodoExpansao),
+        ).length,
       })),
-    [acompanhamentos],
+    [acompanhamentos, periodoExpansao],
   );
 
   const ir = (v: WorkspaceView) => () => setWorkspace(v);
@@ -390,54 +443,65 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
 
   return (
     <div className="space-y-8 p-6">
-      {/* Filtros globais */}
+      {/* Escopo global — o período agora é filtrado seção a seção */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {!apenasMinhas && (
-            <Select value={escopoSel} onValueChange={setEscopoSel}>
-              <SelectTrigger className="h-9 w-52">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TIME}>Time inteiro</SelectItem>
-                {myId && <SelectItem value={myId}>Minha visão</SelectItem>}
-                {membrosOrdenados
-                  .filter((m) => m.id !== myId)
-                  .map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          )}
-          <PeriodFilter
-            preset={preset}
-            onPresetChange={setPreset}
-            customDe={customDe}
-            customAte={customAte}
-            onCustomChange={(de, ate) => {
-              setCustomDe(de);
-              setCustomAte(ate);
-            }}
-          />
-        </div>
+        {!apenasMinhas ? (
+          <Select value={escopoSel} onValueChange={setEscopoSel}>
+            <SelectTrigger className="h-9 w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TIME}>Time inteiro</SelectItem>
+              {myId && <SelectItem value={myId}>Minha visão</SelectItem>}
+              {membrosOrdenados
+                .filter((m) => m.id !== myId)
+                .map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nome}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div />
+        )}
         <ReportDialog apenasMinhas={apenasMinhas} />
       </div>
 
-      {/* 1. Resultado do mês — ativação + reativação do mês corrente, sempre,
-          independente do filtro de período selecionado acima. */}
-      <ResultadoMesTile valor={resultadoMesAtual} variacaoPct={variacaoMesPct} />
+      {/* 1. Resultado do mês + Meta — mês selecionável, começa no mês corrente:
+          é "como estou indo agora?", e ritmo/projeção só valem dentro de um
+          mês específico. */}
+      <ResultadoMetaFaixa
+        realizado={resultadoMesFaixa}
+        variacaoPct={variacaoMesFaixaPct}
+        meta={metaTime}
+        ranking={rankingMetas}
+        escopoId={escopoId}
+        escopoLabel={escopoLabel}
+        mesLabel={rotuloMes(mesFaixaKey)}
+        mesFaixaKey={mesFaixaKey}
+        isMesAtual={isMesFaixaAtual}
+        hoje={hoje}
+        onMudarMes={(delta) => {
+          const [ano, mes] = mesFaixaKey.split("-").map(Number);
+          const d = new Date(ano, mes - 1 + delta, 1);
+          setMesFaixaKey(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+        }}
+        onDefinirMetas={ir({ tipo: "metas" })}
+      />
 
       {/* 2. Ação do dia */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Ação do dia</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Ação do dia <Selo>sempre atual</Selo>
+          </h2>
           <p className="text-xs text-muted-foreground">
-            O que precisa de atenção agora — independente do período selecionado
+            O que precisa de atenção agora — sem filtro de período, é fila de trabalho, não métrica
+            de intervalo
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <AcaoTile
             icone={<AlertTriangle className="h-4 w-4" />}
             label="Reuniões aguardando conclusão"
@@ -478,42 +542,76 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </div>
       </section>
 
-      {/* 1. Expansão e funil — o retrato da carteira, sempre a empresa inteira */}
+      {/* Expansão e funil — carteira e funil, sempre a empresa inteira */}
       <section className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Expansão</h2>
-          <p className="text-xs text-muted-foreground">
-            Polos, negociações, escolas técnicas e o funil de acompanhamento
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Expansão</h2>
+            <p className="text-xs text-muted-foreground">
+              Carteira e funil de acompanhamento — negociações e escolas técnicas estão em Números
+              do período
+            </p>
+          </div>
+          <PeriodFilter
+            preset={filtroExpansao.preset}
+            onPresetChange={filtroExpansao.setPreset}
+            customDe={filtroExpansao.customDe}
+            customAte={filtroExpansao.customAte}
+            onCustomChange={(de, ate) => {
+              filtroExpansao.setCustomDe(de);
+              filtroExpansao.setCustomAte(ate);
+            }}
+          />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Polos ativos" value={inteiro(polosAtivos.length)} />
-          <StatTile label="Valor em ativação" value={formatarValor(valorAtivo)} />
-          <StatTile label="Negociações" value={inteiro(negociacoes.length)} />
-          <StatTile label="Escolas técnicas" value={inteiro(escolas.length)} />
+        <div className="grid grid-cols-2 gap-3">
+          <StatTile label="Polos ativos" value={inteiro(polosAtivos.length)} size="sm" />
+          <StatTile label="Valor em ativação" value={formatarValor(valorAtivo)} size="sm" />
         </div>
 
         <Card title="Funil de Acompanhamento">
-          {acompanhamentos.length > 0 ? (
+          {funilRows.some((r) => r.total > 0) ? (
             <HorizontalBarChart rows={funilRows} />
           ) : (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              Nenhum cliente no funil de acompanhamento ainda.
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              {acompanhamentos.length > 0 ? (
+                "Nenhum cliente no funil no período selecionado."
+              ) : (
+                <>
+                  Nenhum cliente no funil de acompanhamento ainda.
+                  <button
+                    type="button"
+                    onClick={ir({ tipo: "acompanhamento" })}
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Cadastrar acompanhamento
+                  </button>
+                </>
+              )}
             </div>
           )}
         </Card>
       </section>
 
-
-      {/* 3. Números do período */}
+      {/* Números do período */}
       <section className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Números do período</h2>
-          <p className="text-xs text-muted-foreground">{escopoLabel}</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-base font-semibold text-foreground">
+            Números do período <Selo>{escopoLabel}</Selo>
+          </h2>
+          <PeriodFilter
+            preset={filtroNumeros.preset}
+            onPresetChange={filtroNumeros.setPreset}
+            customDe={filtroNumeros.customDe}
+            customAte={filtroNumeros.customAte}
+            onCustomChange={(de, ate) => {
+              filtroNumeros.setCustomDe(de);
+              filtroNumeros.setCustomAte(ate);
+            }}
+          />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <MetricTile
             label="Ativações"
             value={inteiro(ativ.quantidade)}
@@ -532,6 +630,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           <MetricTile
             label="Valor de ativação"
             value={formatarValor(ativ.valor)}
+            hint={
+              ticketMedio(ativ) != null
+                ? `Ticket médio: ${formatarValor(ticketMedio(ativ))}`
+                : undefined
+            }
             onClick={ir({ tipo: "ativacao" })}
           />
 
@@ -543,16 +646,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           <MetricTile
             label="Valor de reativação"
             value={formatarValor(reat.valor)}
-            onClick={ir({ tipo: "reativacao" })}
-          />
-          <MetricTile
-            label="Ticket médio de ativação"
-            value={formatarValor(ticketMedio(ativ))}
-            onClick={ir({ tipo: "ativacao" })}
-          />
-          <MetricTile
-            label="Ticket médio de reativação"
-            value={formatarValor(ticketMedio(reat))}
+            hint={
+              ticketMedio(reat) != null
+                ? `Ticket médio: ${formatarValor(ticketMedio(reat))}`
+                : undefined
+            }
             onClick={ir({ tipo: "reativacao" })}
           />
 
@@ -575,7 +673,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           />
           <BaseAtivaCard
             base={base}
-            periodoLabel={preset === "todos" ? "em todo o período" : "no período"}
+            periodoLabel={filtroNumeros.preset === "todos" ? "em todo o período" : "no período"}
             onClick={ir({ tipo: "ativacao" })}
           />
         </div>
@@ -588,56 +686,26 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         )}
       </section>
 
-      {/* 4. Meta x realizado */}
-      <section className="space-y-3">
+      {/* Evolução mensal */}
+      <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-foreground">
-              Meta x realizado — {rotuloMes(mesMeta)}
-            </h2>
+            <h2 className="text-base font-semibold text-foreground">Evolução mensal</h2>
             <p className="text-xs text-muted-foreground">
-              Realizado soma valor de ativação e de reativação no mês
+              Os gráficos seguem o filtro abaixo (até 24 meses); o recorde olha o histórico
+              completo, pra não se perder quando alguém filtra
             </p>
           </div>
-          <button
-            type="button"
-            onClick={ir({ tipo: "metas" })}
-            className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Definir metas
-          </button>
-        </div>
-
-        {metaTime > 0 || realizadoTime > 0 ? (
-          <Card title={escopoId ? escopoLabel : "Time"}>
-            <MetaBarra realizado={realizadoTime} meta={metaTime} destaque />
-            {!escopoId && rankingMetas.length > 0 && (
-              <div className="mt-6 space-y-4 border-t border-border pt-5">
-                {rankingMetas.map((r) => (
-                  <div key={r.membro.id}>
-                    <div className="mb-1.5 text-xs font-medium text-foreground">
-                      {r.membro.nome}
-                    </div>
-                    <MetaBarra realizado={r.realizado} meta={r.meta} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            Nenhuma meta definida para {rotuloMes(mesMeta)} e nenhum valor realizado no mês.
-          </div>
-        )}
-      </section>
-
-      {/* 5. Evolução mensal */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Evolução mensal</h2>
-          <p className="text-xs text-muted-foreground">
-            Histórico completo — não segue o filtro de período, para o mês recorde não se perder
-          </p>
+          <PeriodFilter
+            preset={filtroEvolucao.preset}
+            onPresetChange={filtroEvolucao.setPreset}
+            customDe={filtroEvolucao.customDe}
+            customAte={filtroEvolucao.customAte}
+            onCustomChange={(de, ate) => {
+              filtroEvolucao.setCustomDe(de);
+              filtroEvolucao.setCustomAte(ate);
+            }}
+          />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -653,20 +721,23 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Ativações por mês">
-            <HorizontalBarChart rows={serieAtivacoes.slice(JANELA_GRAFICO)} />
-          </Card>
-          <Card title="Reativações por mês">
-            <HorizontalBarChart rows={serieReativacoes.slice(JANELA_GRAFICO)} />
-          </Card>
-          <Card title="Valor de ativação por mês">
-            <HorizontalBarChart
-              rows={serieValor.slice(JANELA_GRAFICO)}
-              formatValue={(v) => formatarValor(v)}
-            />
-          </Card>
-        </div>
+        {mesesJanela.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            Nenhum mês no período selecionado.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card title="Ativações por mês">
+              <HorizontalBarChart rows={serieAtivacoes} />
+            </Card>
+            <Card title="Reativações por mês">
+              <HorizontalBarChart rows={serieReativacoes} />
+            </Card>
+            <Card title="Valor de ativação por mês">
+              <HorizontalBarChart rows={serieValor} formatValue={(v) => formatarValor(v)} />
+            </Card>
+          </div>
+        )}
       </section>
 
       {/* Tarefas — mantidas no fim */}
@@ -677,15 +748,27 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </Section>
       )}
 
-      <section className="space-y-6">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Produtividade</h2>
-          <p className="text-xs text-muted-foreground">
-            Tarefas recebidas x concluídas no período selecionado
-          </p>
-        </div>
+      {!apenasMinhas && (
+        <section className="space-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Produtividade</h2>
+              <p className="text-xs text-muted-foreground">
+                Tarefas recebidas x concluídas no período selecionado
+              </p>
+            </div>
+            <PeriodFilter
+              preset={filtroProdutividade.preset}
+              onPresetChange={filtroProdutividade.setPreset}
+              customDe={filtroProdutividade.customDe}
+              customAte={filtroProdutividade.customAte}
+              onCustomChange={(de, ate) => {
+                filtroProdutividade.setCustomDe(de);
+                filtroProdutividade.setCustomAte(ate);
+              }}
+            />
+          </div>
 
-        {!apenasMinhas && (
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Visão por Membro</h3>
@@ -707,7 +790,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
               <MemberProductivityBlock
                 tarefasDoMembro={tarefasMembro}
                 membroId={membroSelecionado.id}
-                periodo={periodo}
+                periodo={filtroProdutividade.periodo}
               />
             ) : (
               <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -717,8 +800,8 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
               </div>
             )}
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }
@@ -767,31 +850,239 @@ function AcaoTile({
   );
 }
 
-/** Ativação + reativação do mês corrente, com a variação vs. o mês anterior. */
-function ResultadoMesTile({ valor, variacaoPct }: { valor: number; variacaoPct: number | null }) {
-  const subiu = variacaoPct != null && variacaoPct >= 0;
+/** Selo de contexto no título de uma seção — se ela segue o filtro global ou não. */
+function Selo({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full max-w-xs rounded-xl border border-border bg-card/80 p-5 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Resultado do mês
-      </div>
-      <div className="mt-1.5 text-2xl font-semibold tabular-nums text-foreground">
-        {formatarValor(valor)}
-      </div>
-      <div
-        className={`mt-1 text-xs font-medium ${
-          variacaoPct == null
-            ? "text-muted-foreground"
-            : subiu
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400"
-        }`}
+    <span className="ml-1.5 rounded-full border border-border bg-muted px-2 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+/** Seletor de mês — meta e ritmo são conceitos mensais, não fazem sentido num intervalo livre. */
+function SeletorMes({
+  mesLabel,
+  onMudarMes,
+}: {
+  mesLabel: string;
+  onMudarMes: (delta: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-[var(--surface-2)] p-1">
+      <button
+        type="button"
+        onClick={() => onMudarMes(-1)}
+        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Mês anterior"
       >
-        {variacaoPct == null
-          ? "Sem dados do mês anterior"
-          : `${subiu ? "↑" : "↓"} ${percentual(Math.abs(variacaoPct))} vs mês anterior`}
-      </div>
+        <ChevronLeft className="h-3.5 w-3.5" />
+      </button>
+      <span className="min-w-[8.5rem] px-1 text-center text-xs font-medium capitalize text-foreground">
+        {mesLabel}
+      </span>
+      <button
+        type="button"
+        onClick={() => onMudarMes(1)}
+        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Próximo mês"
+      >
+        <ChevronRight className="h-3.5 w-3.5" />
+      </button>
     </div>
+  );
+}
+
+/**
+ * Resultado do mês + meta do time numa faixa só — as duas telas antigas
+ * respondiam à mesma pergunta ("como estou indo agora?") com números
+ * calculados em separado. Tem seletor de mês próprio (em vez do filtro de
+ * período genérico das outras seções): ritmo e projeção só fazem sentido
+ * dentro de um mês específico — a meta é mensal.
+ */
+function ResultadoMetaFaixa({
+  realizado,
+  variacaoPct,
+  meta,
+  ranking,
+  escopoId,
+  escopoLabel,
+  mesLabel,
+  mesFaixaKey,
+  isMesAtual,
+  hoje,
+  onMudarMes,
+  onDefinirMetas,
+}: {
+  realizado: number;
+  variacaoPct: number | null;
+  meta: number;
+  ranking: {
+    membro: { id: string; nome: string };
+    realizado: number;
+    meta: number;
+    pct: number;
+  }[];
+  escopoId: string | null;
+  escopoLabel: string;
+  mesLabel: string;
+  mesFaixaKey: string;
+  isMesAtual: boolean;
+  hoje: string;
+  onMudarMes: (delta: number) => void;
+  onDefinirMetas: () => void;
+}) {
+  const subiu = variacaoPct != null && variacaoPct >= 0;
+  const falta = Math.max(meta - realizado, 0);
+  const bateu = meta > 0 && realizado >= meta;
+  const pct = meta > 0 ? (realizado / meta) * 100 : 0;
+
+  const [anoFaixa, mesNumFaixa] = mesFaixaKey.split("-").map(Number);
+  const diasNoMes = new Date(anoFaixa, mesNumFaixa, 0).getDate();
+  // Num mês fechado, "hoje" não vale — o mês inteiro já decorreu.
+  const diaAtual = isMesAtual ? Math.min(Number(hoje.slice(8, 10)), diasNoMes) : diasNoMes;
+  const diasRestantes = isMesAtual ? Math.max(diasNoMes - diaAtual, 0) : 0;
+
+  const mediaDiariaAtual = diaAtual > 0 ? realizado / diaAtual : 0;
+  const mediaDiariaNecessaria = diasRestantes > 0 ? falta / diasRestantes : falta;
+  const projecao = mediaDiariaAtual * diasNoMes;
+  const noRitmo = bateu || mediaDiariaAtual >= mediaDiariaNecessaria;
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            Resultado do mês {isMesAtual && <Selo>mês atual</Selo>}
+          </h2>
+          <p className="text-xs text-muted-foreground">{escopoLabel}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {meta === 0 && (
+            <button
+              type="button"
+              onClick={onDefinirMetas}
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Definir metas
+            </button>
+          )}
+          <SeletorMes mesLabel={mesLabel} onMudarMes={onMudarMes} />
+        </div>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-3 sm:divide-x sm:divide-border">
+        {/* Realizado */}
+        <div className="sm:pr-6">
+          <div className="text-xs text-muted-foreground">Realizado</div>
+          <div className="mt-1 text-4xl font-semibold tabular-nums tracking-tight text-foreground">
+            {formatarValor(realizado)}
+          </div>
+          <div
+            className={`mt-1.5 text-xs font-medium ${
+              variacaoPct == null
+                ? "text-muted-foreground"
+                : subiu
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {variacaoPct == null
+              ? "Sem dados do mês anterior"
+              : `${subiu ? "↑" : "↓"} ${percentual(Math.abs(variacaoPct))} vs mês anterior`}
+          </div>
+        </div>
+
+        {/* Meta */}
+        <div className="sm:px-6">
+          <div className="text-xs text-muted-foreground">Meta</div>
+          {meta > 0 ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span
+                  className={`text-2xl font-semibold tabular-nums ${bateu ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}
+                >
+                  {percentual(pct)}
+                </span>
+                <span className="text-xs text-muted-foreground">de {formatarValor(meta)}</span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-[width]"
+                  style={{
+                    width: `${Math.min(pct, 100)}%`,
+                    background: bateu
+                      ? "linear-gradient(90deg,#10b981,#22c55e)"
+                      : "linear-gradient(90deg,#14b8a6,#3b82f6)",
+                  }}
+                />
+              </div>
+              <div className="mt-1.5 text-xs text-muted-foreground">
+                {bateu
+                  ? "Meta batida"
+                  : isMesAtual
+                    ? `Faltam ${formatarValor(falta)} · ${diasRestantes} dia(s) no mês`
+                    : `Faltaram ${formatarValor(falta)} — mês encerrado`}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-muted-foreground">Nenhuma meta definida</div>
+          )}
+        </div>
+
+        {/* Ritmo */}
+        <div className="sm:pl-6">
+          <div className="text-xs text-muted-foreground">Ritmo</div>
+          {!isMesAtual ? (
+            <div className="mt-1 text-sm text-muted-foreground">
+              Ritmo só se aplica ao mês em andamento
+            </div>
+          ) : meta > 0 && !bateu ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span
+                  className={`text-2xl font-semibold tabular-nums ${
+                    noRitmo
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {formatarValor(mediaDiariaAtual)}
+                </span>
+                <span className="text-xs text-muted-foreground">/dia</span>
+              </div>
+              <div className="mt-1.5 text-xs text-muted-foreground">
+                {diasRestantes > 0
+                  ? `Precisa de ${formatarValor(mediaDiariaNecessaria)}/dia · ${noRitmo ? "no ritmo" : "abaixo do ritmo"}`
+                  : "Último dia do mês"}
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Projeção: {formatarValor(projecao)} ao fim do mês
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-muted-foreground">
+              {bateu ? "Meta batida — sem ritmo a acompanhar" : "Defina uma meta para ver o ritmo"}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!escopoId && ranking.length > 0 && (
+        <div className="mt-6 space-y-4 border-t border-border pt-5">
+          {ranking.map((r) => (
+            <div key={r.membro.id}>
+              <div className="mb-1.5 text-xs font-medium text-foreground">{r.membro.nome}</div>
+              <MetaBarra realizado={r.realizado} meta={r.meta} />
+            </div>
+          ))}
+        </div>
+      )}
+      {!escopoId && ranking.length === 0 && (
+        <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
+          Nenhum membro com meta ou resultado neste mês.
+        </p>
+      )}
+    </section>
   );
 }
 

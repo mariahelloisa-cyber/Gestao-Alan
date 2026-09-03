@@ -165,7 +165,7 @@ function Indicador({
 
 export function ReunioesView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
@@ -863,7 +863,7 @@ export function ReunioesView() {
                           <SelectValue placeholder="Selecione um membro" />
                         </SelectTrigger>
                         <SelectContent>
-                          {membros.map((m) => (
+                          {membrosAtribuiveis.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
                               {m.nome}
                             </SelectItem>
@@ -952,7 +952,7 @@ export function ReunioesView() {
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {membros.map((m) => (
+                    {membrosAtribuiveis.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.nome}
                         {m.cargo ? ` (${m.cargo})` : ""}

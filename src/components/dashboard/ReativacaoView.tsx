@@ -66,6 +66,7 @@ import {
   formatarTelefoneSeAplicavel,
   TELEFONE_INPUT_PROPS,
 } from "@/lib/telefone";
+import { nivelBadgeStyle } from "@/lib/polos-ui";
 import {
   DetailHeader,
   DetailHighlight,
@@ -134,15 +135,9 @@ function formatarData(d: string | null): string {
   return new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
-const NIVEL_BADGE: Record<Nivel, string> = {
-  N1: "bg-foreground text-background",
-  N2: "bg-gray-500 text-white",
-  N3: "bg-gray-200 text-black",
-};
-
 export function ReativacaoView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listPolos);
   const createFn = useServerFn(createPolo);
   const updateFn = useServerFn(updatePolo);
@@ -364,7 +359,7 @@ export function ReativacaoView() {
                     onClick={() => setVerAlvo(p)}
                   >
                     <TableCell className="pl-4">
-                      <Badge className={NIVEL_BADGE[p.nivel as Nivel]}>{p.nivel}</Badge>
+                      <Badge style={nivelBadgeStyle(p.nivel as Nivel)}>{p.nivel}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">{p.nome}</TableCell>
                     <TableCell>
@@ -565,7 +560,7 @@ export function ReativacaoView() {
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {membros.map((m) => (
+                  {membrosAtribuiveis.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.nome}
                       {m.cargo ? ` (${m.cargo})` : ""}
@@ -620,7 +615,7 @@ export function ReativacaoView() {
             <div className="space-y-4">
               <DetailHighlight>
                 <DetailHighlightItem label="Nível">
-                  <Badge className={NIVEL_BADGE[verAlvo.nivel as Nivel]}>{verAlvo.nivel}</Badge>
+                  <Badge style={nivelBadgeStyle(verAlvo.nivel as Nivel)}>{verAlvo.nivel}</Badge>
                 </DetailHighlightItem>
                 <DetailHighlightItem label="Nome do polo">
                   <p className="text-lg font-semibold">{verAlvo.nome}</p>
@@ -701,7 +696,7 @@ export function ReativacaoView() {
                 <SelectValue placeholder="Selecione quem está reativando..." />
               </SelectTrigger>
               <SelectContent>
-                {membros.map((m) => (
+                {membrosAtribuiveis.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.nome}
                     {m.cargo ? ` (${m.cargo})` : ""}

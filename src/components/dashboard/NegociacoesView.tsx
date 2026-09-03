@@ -105,7 +105,7 @@ function negociacaoParaForm(n: Negociacao): FormState {
 
 export function NegociacoesView() {
   const qc = useQueryClient();
-  const { membros } = useTasks();
+  const { membros, membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listNegociacoes);
   const createFn = useServerFn(createNegociacao);
   const updateFn = useServerFn(updateNegociacao);
@@ -463,7 +463,7 @@ export function NegociacoesView() {
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {membros.map((m) => (
+                      {membrosAtribuiveis.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.nome}
                           {m.cargo ? ` (${m.cargo})` : ""}
