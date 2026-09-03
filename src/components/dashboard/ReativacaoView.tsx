@@ -46,6 +46,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Plus,
+  Pencil,
   Trash2,
   Eye,
   Search,
@@ -60,7 +61,11 @@ import {
   FileText,
   X,
 } from "lucide-react";
-import { formatarTelefone, TELEFONE_INPUT_PROPS } from "@/lib/telefone";
+import {
+  formatarTelefone,
+  formatarTelefoneSeAplicavel,
+  TELEFONE_INPUT_PROPS,
+} from "@/lib/telefone";
 import {
   DetailHeader,
   DetailHighlight,
@@ -70,6 +75,7 @@ import {
 } from "@/components/dashboard/detail-view";
 
 type Nivel = "N1" | "N2" | "N3";
+type Situacao = "ativo" | "reativado" | "desligado";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
 
 type FormState = {
@@ -101,6 +107,22 @@ const FORM_VAZIO: FormState = {
   observacao: "",
   reativado_por: "",
 };
+
+function poloParaForm(p: Polo): FormState {
+  return {
+    nivel: p.nivel as Nivel,
+    nome: p.nome,
+    contato: formatarTelefoneSeAplicavel(p.contato ?? ""),
+    email: p.email ?? "",
+    produto: p.produto ?? "",
+    data_reativacao: p.data_reativacao ?? "",
+    valor_reativacao: p.valor_reativacao != null ? String(p.valor_reativacao) : "",
+    data_saida: p.data_saida ?? "",
+    motivo_saida: p.motivo_saida ?? "",
+    observacao: p.observacao ?? "",
+    reativado_por: p.reativado_por ?? "",
+  };
+}
 
 function formatarValor(v: number | null): string {
   if (v == null) return "—";
@@ -156,49 +178,61 @@ export function ReativacaoView() {
   const [reativarAlvo, setReativarAlvo] = useState<Polo | null>(null);
   const [reativadoPorId, setReativadoPorId] = useState("");
 
-  const [novoOpen, setNovoOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editAlvo, setEditAlvo] = useState<Polo | null>(null);
   const [form, setForm] = useState<FormState>(FORM_VAZIO);
 
   const abrirNovo = () => {
+    setEditAlvo(null);
     setForm(FORM_VAZIO);
-    setNovoOpen(true);
+    setFormOpen(true);
   };
 
-  const criarMut = useMutation({
+  const abrirEdicao = (p: Polo) => {
+    setEditAlvo(p);
+    setForm(poloParaForm(p));
+    setFormOpen(true);
+  };
+
+  const salvarMut = useMutation({
     mutationFn: async (vars: FormState) => {
-      await createFn({
-        data: {
-          nivel: vars.nivel,
-          nome: vars.nome.trim(),
-          contato: vars.contato.trim() || null,
-          email: vars.email.trim() || null,
-          produto: vars.produto.trim() || null,
-          data_reativacao: vars.data_reativacao || null,
-          valor_reativacao: vars.valor_reativacao ? Number(vars.valor_reativacao) : null,
-          // Cadastrado direto em Reativação: já entra como "desligado" pra
-          // aparecer nesta lista — é um polo em acompanhamento pra reativar.
-          situacao: "desligado",
-          data_saida: vars.data_saida || null,
-          motivo_saida: vars.motivo_saida.trim() || null,
-          observacao: vars.observacao.trim() || null,
-          reativado_por: vars.reativado_por || null,
-        },
-      });
+      const payload = {
+        nivel: vars.nivel,
+        nome: vars.nome.trim(),
+        contato: vars.contato.trim() || null,
+        email: vars.email.trim() || null,
+        produto: vars.produto.trim() || null,
+        data_reativacao: vars.data_reativacao || null,
+        valor_reativacao: vars.valor_reativacao ? Number(vars.valor_reativacao) : null,
+        data_saida: vars.data_saida || null,
+        motivo_saida: vars.motivo_saida.trim() || null,
+        observacao: vars.observacao.trim() || null,
+        reativado_por: vars.reativado_por || null,
+      };
+      if (editAlvo) {
+        await updateFn({
+          data: { id: editAlvo.id, situacao: editAlvo.situacao as Situacao, ...payload },
+        });
+      } else {
+        // Cadastrado direto em Reativação: já entra como "desligado" pra
+        // aparecer nesta lista — é um polo em acompanhamento pra reativar.
+        await createFn({ data: { ...payload, situacao: "desligado" } });
+      }
     },
     onSuccess: () => {
-      toast.success("Polo cadastrado.");
-      setNovoOpen(false);
+      toast.success(editAlvo ? "Polo atualizado." : "Polo cadastrado.");
+      setFormOpen(false);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao cadastrar polo."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar polo."),
   });
 
-  const criar = () => {
+  const salvar = () => {
     if (!form.nome.trim()) {
       toast.error("Informe o nome do polo.");
       return;
     }
-    criarMut.mutate(form);
+    salvarMut.mutate(form);
   };
 
   const deleteMut = useMutation({
@@ -365,6 +399,15 @@ export function ReativacaoView() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => abrirEdicao(p)}
+                          title="Editar polo"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
                           onClick={() => {
                             setReativarAlvo(p);
@@ -411,14 +454,15 @@ export function ReativacaoView() {
         </div>
       </div>
 
-      {/* Cadastrar direto em Reativação */}
-      <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
+      {/* Cadastrar / editar direto em Reativação */}
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo polo</DialogTitle>
+            <DialogTitle>{editAlvo ? "Editar polo" : "Novo polo"}</DialogTitle>
             <DialogDescription>
-              Cadastro direto em Reativação — o polo entra já como inativo, em acompanhamento pra
-              reativar.
+              {editAlvo
+                ? "Alterações aqui valem também na página de Ativação — é o mesmo cadastro."
+                : "Cadastro direto em Reativação — o polo entra já como inativo, em acompanhamento pra reativar."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -554,11 +598,11 @@ export function ReativacaoView() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNovoOpen(false)}>
+            <Button variant="outline" onClick={() => setFormOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={criar} disabled={criarMut.isPending}>
-              Cadastrar
+            <Button onClick={salvar} disabled={salvarMut.isPending}>
+              {editAlvo ? "Salvar" : "Cadastrar"}
             </Button>
           </DialogFooter>
         </DialogContent>

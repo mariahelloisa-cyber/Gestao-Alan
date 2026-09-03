@@ -6,6 +6,7 @@ import { listPolos, updatePolo, deletePolo } from "@/lib/polos.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -18,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -33,9 +35,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Trash2,
   Eye,
+  Pencil,
   Search,
   Ban,
   Undo2,
@@ -55,9 +59,42 @@ import {
   DetailSection,
   DetailField,
 } from "@/components/dashboard/detail-view";
+import {
+  formatarTelefone,
+  formatarTelefoneSeAplicavel,
+  TELEFONE_INPUT_PROPS,
+} from "@/lib/telefone";
 
 type Nivel = "N1" | "N2" | "N3";
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
+
+type FormState = {
+  nivel: Nivel;
+  nome: string;
+  contato: string;
+  email: string;
+  produto: string;
+  data_reuniao: string;
+  horario_reuniao: string;
+  faturamento: string;
+  link_reuniao: string;
+  observacao: string;
+};
+
+function poloParaForm(p: Polo): FormState {
+  return {
+    nivel: p.nivel as Nivel,
+    nome: p.nome,
+    contato: formatarTelefoneSeAplicavel(p.contato ?? ""),
+    email: p.email ?? "",
+    produto: p.produto ?? "",
+    data_reuniao: p.data_reuniao ?? "",
+    horario_reuniao: p.horario_reuniao ? p.horario_reuniao.slice(0, 5) : "",
+    faturamento: p.faturamento != null ? String(p.faturamento) : "",
+    link_reuniao: p.link_reuniao ?? "",
+    observacao: p.observacao ?? "",
+  };
+}
 
 function formatarValor(v: number | null): string {
   if (v == null) return "—";
@@ -112,6 +149,61 @@ export function InativosView() {
 
   const [verAlvo, setVerAlvo] = useState<Polo | null>(null);
   const [reabrirAlvo, setReabrirAlvo] = useState<Polo | null>(null);
+
+  const [editAlvo, setEditAlvo] = useState<Polo | null>(null);
+  const [form, setForm] = useState<FormState>({
+    nivel: "N1",
+    nome: "",
+    contato: "",
+    email: "",
+    produto: "",
+    data_reuniao: "",
+    horario_reuniao: "",
+    faturamento: "",
+    link_reuniao: "",
+    observacao: "",
+  });
+
+  const abrirEdicao = (p: Polo) => {
+    setEditAlvo(p);
+    setForm(poloParaForm(p));
+  };
+
+  const salvarMut = useMutation({
+    mutationFn: async () => {
+      if (!editAlvo) return;
+      await updateFn({
+        data: {
+          id: editAlvo.id,
+          nivel: form.nivel,
+          nome: form.nome.trim(),
+          situacao: editAlvo.situacao as "inativo",
+          contato: form.contato.trim() || null,
+          email: form.email.trim() || null,
+          produto: form.produto.trim() || null,
+          data_reuniao: form.data_reuniao || null,
+          horario_reuniao: form.horario_reuniao || null,
+          faturamento: form.faturamento ? Number(form.faturamento) : null,
+          link_reuniao: form.link_reuniao.trim() || null,
+          observacao: form.observacao.trim() || null,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Polo atualizado.");
+      setEditAlvo(null);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar polo."),
+  });
+
+  const salvar = () => {
+    if (!form.nome.trim()) {
+      toast.error("Informe o nome do polo.");
+      return;
+    }
+    salvarMut.mutate();
+  };
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
@@ -253,6 +345,15 @@ export function InativosView() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => abrirEdicao(p)}
+                          title="Editar polo"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           onClick={() => setReabrirAlvo(p)}
                           title="Devolver para Reuniões"
                         >
@@ -362,6 +463,134 @@ export function InativosView() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerAlvo(null)}>
               <X className="mr-1.5 h-4 w-4" /> Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar */}
+      <Dialog open={!!editAlvo} onOpenChange={(o) => !o && setEditAlvo(null)}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar polo</DialogTitle>
+            <DialogDescription>Preencha os dados do polo inativo.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Nível</Label>
+              <RadioGroup
+                value={form.nivel}
+                onValueChange={(v) => setForm((f) => ({ ...f, nivel: v as Nivel }))}
+                className="flex items-center gap-4"
+              >
+                {(["N1", "N2", "N3"] as const).map((n) => (
+                  <label key={n} className="flex items-center gap-1.5 text-sm">
+                    <RadioGroupItem value={n} id={`inativo-nivel-${n}`} />
+                    {n}
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="inativo-nome">Nome do polo</Label>
+              <Input
+                id="inativo-nome"
+                value={form.nome}
+                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-contato">Contato</Label>
+              <Input
+                id="inativo-contato"
+                {...TELEFONE_INPUT_PROPS}
+                value={form.contato}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, contato: formatarTelefone(e.target.value) }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-email">E-mail</Label>
+              <Input
+                id="inativo-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="inativo-produto">Produto</Label>
+              <Input
+                id="inativo-produto"
+                value={form.produto}
+                onChange={(e) => setForm((f) => ({ ...f, produto: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-data">Data da reunião</Label>
+              <Input
+                id="inativo-data"
+                type="date"
+                value={form.data_reuniao}
+                onChange={(e) => setForm((f) => ({ ...f, data_reuniao: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-horario">Horário</Label>
+              <Input
+                id="inativo-horario"
+                type="time"
+                value={form.horario_reuniao}
+                onChange={(e) => setForm((f) => ({ ...f, horario_reuniao: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-faturamento">Faturamento (R$)</Label>
+              <Input
+                id="inativo-faturamento"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.faturamento}
+                onChange={(e) => setForm((f) => ({ ...f, faturamento: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="inativo-link">Link da reunião</Label>
+              <Input
+                id="inativo-link"
+                value={form.link_reuniao}
+                onChange={(e) => setForm((f) => ({ ...f, link_reuniao: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="inativo-obs">Observação</Label>
+              <Textarea
+                id="inativo-obs"
+                rows={4}
+                value={form.observacao}
+                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditAlvo(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={salvar} disabled={salvarMut.isPending}>
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

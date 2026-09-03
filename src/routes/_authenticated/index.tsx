@@ -78,7 +78,7 @@ function WorkspaceContent() {
 
   if (workspace.tipo === "dashboard") {
     return (
-      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)] workspace-watermark">
+      <div className="flex-1 overflow-y-auto bg-[var(--surface-1)]">
         <DashboardView apenasMinhas={!isAdminLike} />
       </div>
     );

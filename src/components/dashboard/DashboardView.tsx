@@ -72,6 +72,13 @@ function mesKeyAtual(): string {
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** O mês anterior a uma chave "YYYY-MM". */
+function mesAnteriorA(key: string): string {
+  const [ano, mes] = key.split("-").map(Number);
+  const d = new Date(ano, mes - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /** O intervalo completo de um mês "YYYY-MM". */
 function periodoDoMes(key: string): Periodo {
   const [ano, mes] = key.split("-").map(Number);
@@ -178,6 +185,28 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     () => polos.filter((p) => p.data_reuniao && !p.responsavel_id).length,
     [polos],
   );
+
+  // --- Resultado do mês (independe do filtro de período selecionado) -------
+  const mesAtualKey = mesKeyAtual();
+  const mesAnteriorKey = useMemo(() => mesAnteriorA(mesAtualKey), [mesAtualKey]);
+  const periodoMesAtual = useMemo(() => periodoDoMes(mesAtualKey), [mesAtualKey]);
+  const periodoMesAnterior = useMemo(() => periodoDoMes(mesAnteriorKey), [mesAnteriorKey]);
+
+  const resultadoMesAtual = useMemo(
+    () =>
+      ativacoes(polosResp, periodoMesAtual).valor + reativacoes(polosReat, periodoMesAtual).valor,
+    [polosResp, polosReat, periodoMesAtual],
+  );
+  const resultadoMesAnterior = useMemo(
+    () =>
+      ativacoes(polosResp, periodoMesAnterior).valor +
+      reativacoes(polosReat, periodoMesAnterior).valor,
+    [polosResp, polosReat, periodoMesAnterior],
+  );
+  const variacaoMesPct =
+    resultadoMesAnterior > 0
+      ? ((resultadoMesAtual - resultadoMesAnterior) / resultadoMesAnterior) * 100
+      : null;
 
   // --- Série mensal ---------------------------------------------------------
   const meses = useMemo(() => {
@@ -288,10 +317,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
 
   // --- Tarefas (bloco mantido) ---------------------------------------------
   const todas = useMemo(() => tarefas.filter((t) => (t.tipo ?? "tarefa") === "tarefa"), [tarefas]);
-  const minhas = useMemo(
-    () => todas.filter((t) => t.responsaveis.some((r) => r.id === myId)),
-    [todas, myId],
-  );
   const tarefasEscopo = useMemo(
     () => (escopoId ? todas.filter((t) => t.responsaveis.some((r) => r.id === escopoId)) : todas),
     [todas, escopoId],
@@ -400,6 +425,10 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         <ReportDialog apenasMinhas={apenasMinhas} />
       </div>
 
+      {/* 1. Resultado do mês — ativação + reativação do mês corrente, sempre,
+          independente do filtro de período selecionado acima. */}
+      <ResultadoMesTile valor={resultadoMesAtual} variacaoPct={variacaoMesPct} />
+
       {/* 2. Ação do dia */}
       <section className="space-y-3">
         <div>
@@ -411,7 +440,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <AcaoTile
             icone={<AlertTriangle className="h-4 w-4" />}
-            label="Reuniões atrasadas"
+            label="Reuniões aguardando conclusão"
             valor={reunioesAtrasadas.length}
             detalhe={
               reunioesAtrasadas[0] &&
@@ -437,13 +466,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
               `${reunioesSemana[0].nome} · ${rotuloRelativo(reunioesSemana[0].data_reuniao)}`
             }
             onClick={ir({ tipo: "reunioes" })}
-          />
-          <AcaoTile
-            icone={<PauseCircle className="h-4 w-4" />}
-            label="Inativos parados"
-            valor={inativosParados.length}
-            detalhe="Sem movimentação há +30 dias"
-            onClick={ir({ tipo: "polos-inativos" })}
           />
           <AcaoTile
             icone={<Clock className="h-4 w-4" />}
@@ -492,12 +514,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
         </div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricTile
-            label="Reuniões realizadas"
-            value={inteiro(coorte.realizadas)}
-            hint={coorte.emAberto > 0 ? `${coorte.emAberto} ainda em aberto` : undefined}
-            onClick={ir({ tipo: "reunioes" })}
-          />
           <MetricTile
             label="Ativações"
             value={inteiro(ativ.quantidade)}
@@ -669,11 +685,6 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           </p>
         </div>
 
-        <div>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Minha Visão</h3>
-          <MemberProductivityBlock tarefasDoMembro={minhas} membroId={myId} periodo={periodo} />
-        </div>
-
         {!apenasMinhas && (
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -753,6 +764,34 @@ function AcaoTile({
         {ativo ? detalhe || "" : "Nada pendente"}
       </div>
     </button>
+  );
+}
+
+/** Ativação + reativação do mês corrente, com a variação vs. o mês anterior. */
+function ResultadoMesTile({ valor, variacaoPct }: { valor: number; variacaoPct: number | null }) {
+  const subiu = variacaoPct != null && variacaoPct >= 0;
+  return (
+    <div className="w-full max-w-xs rounded-xl border border-border bg-card/80 p-5 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Resultado do mês
+      </div>
+      <div className="mt-1.5 text-2xl font-semibold tabular-nums text-foreground">
+        {formatarValor(valor)}
+      </div>
+      <div
+        className={`mt-1 text-xs font-medium ${
+          variacaoPct == null
+            ? "text-muted-foreground"
+            : subiu
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
+        }`}
+      >
+        {variacaoPct == null
+          ? "Sem dados do mês anterior"
+          : `${subiu ? "↑" : "↓"} ${percentual(Math.abs(variacaoPct))} vs mês anterior`}
+      </div>
+    </div>
   );
 }
 
