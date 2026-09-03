@@ -23,14 +23,21 @@ const etapaEnum = z.enum([
   "reuniao",
   "proposta_comercial",
 ]);
-const destinoEnum = z.enum(["ativacao", "negociacoes", "escola_tecnica"]);
+const destinoEnum = z.enum([
+  "ativacao",
+  "negociacoes",
+  "escola_tecnica",
+  "reuniao",
+  "reativacao",
+]);
 const origemEnum = z.enum(["polo", "negociacao", "escola_tecnica"]);
 
 const createSchema = z.object({
   nome: z.string().trim().min(1).max(200),
   contato: z.string().trim().max(200).optional(),
   email: z.string().trim().email().max(255).optional().or(z.literal("")),
-  destino: destinoEnum,
+  // Ausente = não vai pra lugar nenhum: fica só como card no funil público.
+  destino: destinoEnum.optional(),
   origem_tipo: origemEnum.optional(),
   origem_id: z.string().uuid().optional(),
   observacao: z.string().trim().max(5000).optional(),
@@ -47,7 +54,7 @@ export const createAcompanhamento = createServerFn({ method: "POST" })
         nome: data.nome,
         contato: data.contato || null,
         email: data.email || null,
-        destino: data.destino,
+        destino: data.destino ?? null,
         origem_tipo: data.origem_tipo ?? null,
         origem_id: data.origem_id ?? null,
         observacao: data.observacao || null,
@@ -82,7 +89,7 @@ const updateSchema = z.object({
   nome: z.string().trim().min(1).max(200),
   contato: z.string().trim().max(200).optional(),
   email: z.string().trim().email().max(255).optional().or(z.literal("")),
-  destino: destinoEnum,
+  destino: destinoEnum.optional(),
   observacao: z.string().trim().max(5000).optional(),
 });
 
@@ -97,7 +104,7 @@ export const updateAcompanhamento = createServerFn({ method: "POST" })
         nome: data.nome,
         contato: data.contato || null,
         email: data.email || null,
-        destino: data.destino,
+        destino: data.destino ?? null,
         observacao: data.observacao || null,
         atualizado_em: new Date().toISOString(),
       })

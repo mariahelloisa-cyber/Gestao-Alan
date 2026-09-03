@@ -499,7 +499,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
             Ação do dia <Selo>sempre atual</Selo>
           </h2>
           <p className="text-xs text-muted-foreground">
-            O que precisa de atenção agora — sem filtro de período, é fila de trabalho, não métrica
+            O que precisa de atenção agora — sem filtro de período.
             de intervalo
           </p>
         </div>

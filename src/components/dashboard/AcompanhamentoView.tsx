@@ -12,6 +12,7 @@ import {
 import { listPolos, createPolo } from "@/lib/polos.functions";
 import { listNegociacoes, createNegociacao } from "@/lib/negociacoes.functions";
 import { listEscolasTecnicas, createEscolaTecnica } from "@/lib/escolas-tecnicas.functions";
+import { useTasks } from "@/lib/tasks-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +67,10 @@ import {
 
 type Acompanhamento = Awaited<ReturnType<typeof listAcompanhamentos>>[number];
 type Etapa = Acompanhamento["etapa"];
+/** `null` = não enviado pra lugar nenhum: fica só como card no funil público. */
 type Destino = Acompanhamento["destino"];
+/** Valor usado nos <Select> de destino — "nenhum" representa `destino: null`. */
+type DestinoSel = "ativacao" | "reuniao" | "reativacao" | "negociacoes" | "escola_tecnica" | "nenhum";
 type Origem = "polo" | "negociacao" | "escola_tecnica";
 type Nivel = "N1" | "N2" | "N3";
 
@@ -78,37 +82,78 @@ const ETAPAS: { key: Etapa; label: string; cor: string; icon: typeof Map }[] = [
   { key: "proposta_comercial", label: "Proposta Comercial", cor: "#22c55e", icon: Handshake },
 ];
 
-const DESTINO_LABEL: Record<Destino, string> = {
+const DESTINO_LABEL: Record<DestinoSel, string> = {
   ativacao: "Ativação",
+  reuniao: "Reuniões",
+  reativacao: "Reativação",
   negociacoes: "Negociações",
   escola_tecnica: "Escola Técnica",
+  nenhum: "Não enviar",
 };
 
-const DESTINO_BADGE: Record<Destino, string> = {
+const DESTINO_BADGE: Record<DestinoSel, string> = {
   ativacao: "bg-red-500 text-white",
+  reuniao: "bg-amber-500 text-white",
+  reativacao: "bg-emerald-600 text-white",
   negociacoes: "bg-red-500 text-white",
   escola_tecnica: "bg-red-500 text-white",
+  nenhum: "bg-muted text-muted-foreground",
 };
 
-const ORIGEM_POR_DESTINO: Record<Destino, Origem> = {
+/** Converte o `destino` como vem do banco (pode ser `null`) pro valor do Select. */
+function destinoParaSel(d: Destino): DestinoSel {
+  return d ?? "nenhum";
+}
+
+/** Converte de volta pro que o banco espera. */
+function selParaDestino(d: DestinoSel): Exclude<Destino, null> | null {
+  return d === "nenhum" ? null : d;
+}
+
+const ORIGEM_POR_DESTINO: Partial<Record<DestinoSel, Origem>> = {
   ativacao: "polo",
+  reuniao: "polo",
+  reativacao: "polo",
   negociacoes: "negociacao",
   escola_tecnica: "escola_tecnica",
 };
 
-// Formulário de "novo cliente" é um superset dos campos das 3 telas de
-// destino — só mostramos o subconjunto relevante conforme o destino
-// escolhido, mas cadastramos direto na tabela real (polos_ativacao /
-// negociacoes / escolas_tecnicas), igual ao cadastro completo de cada tela.
+/** Situação do polo associada a cada destino que usa `polos_ativacao`. */
+const SITUACAO_POR_DESTINO: Partial<Record<DestinoSel, "ativo" | "reuniao" | "desligado">> = {
+  ativacao: "ativo",
+  reuniao: "reuniao",
+  reativacao: "desligado",
+};
+
+// Formulário de "novo cliente" é um superset dos campos das telas de destino
+// — só mostramos o subconjunto relevante conforme o destino escolhido, mas
+// cadastramos direto na tabela real (polos_ativacao / negociacoes /
+// escolas_tecnicas), igual ao cadastro completo de cada tela. Pra "Não
+// enviar" só nome/contato/email/observação são usados.
 type NovoClienteForm = {
   nivel: Nivel;
   nome: string;
   contato: string;
   email: string;
   produto: string;
+  // Ativação
   data_ativacao: string;
   valor_ativacao: string;
+  // Reunião
+  data_reuniao: string;
+  horario_reuniao: string;
+  faturamento: string;
+  link_reuniao: string;
+  responsavel_id: string;
+  // Reativação
+  data_reativacao: string;
+  valor_reativacao: string;
+  data_saida: string;
+  motivo_saida: string;
+  reativado_por: string;
+  // Negociações
   numero_funcionarios: string;
+  // Escola Técnica
   estado: string;
   cidade: string;
   cursos: string[];
@@ -123,6 +168,16 @@ const NOVO_CLIENTE_VAZIO: NovoClienteForm = {
   produto: "",
   data_ativacao: "",
   valor_ativacao: "",
+  data_reuniao: "",
+  horario_reuniao: "",
+  faturamento: "",
+  link_reuniao: "",
+  responsavel_id: "",
+  data_reativacao: "",
+  valor_reativacao: "",
+  data_saida: "",
+  motivo_saida: "",
+  reativado_por: "",
   numero_funcionarios: "",
   estado: "",
   cidade: "",
@@ -134,7 +189,7 @@ type EditForm = {
   nome: string;
   contato: string;
   email: string;
-  destino: Destino;
+  destino: DestinoSel;
   observacao: string;
 };
 
@@ -148,6 +203,7 @@ const EDIT_FORM_VAZIO: EditForm = {
 
 export function AcompanhamentoView() {
   const qc = useQueryClient();
+  const { membrosAtribuiveis } = useTasks();
   const listFn = useServerFn(listAcompanhamentos);
   const createFn = useServerFn(createAcompanhamento);
   const updateFn = useServerFn(updateAcompanhamento);
@@ -203,7 +259,7 @@ export function AcompanhamentoView() {
   const [editId, setEditId] = useState<string | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
   const [modo, setModo] = useState<"novo" | "existente">("novo");
-  const [destino, setDestino] = useState<Destino>("ativacao");
+  const [destino, setDestino] = useState<DestinoSel>("ativacao");
   const [editForm, setEditForm] = useState<EditForm>(EDIT_FORM_VAZIO);
   const [novoForm, setNovoForm] = useState<NovoClienteForm>(NOVO_CLIENTE_VAZIO);
   const [cursoInput, setCursoInput] = useState("");
@@ -211,6 +267,13 @@ export function AcompanhamentoView() {
   const [etapaAlvo, setEtapaAlvo] = useState<Etapa>("mapeamento");
 
   const origemTipoAtual = ORIGEM_POR_DESTINO[destino];
+
+  const selecionarDestino = (v: DestinoSel) => {
+    setDestino(v);
+    setOrigemId("");
+    // "Não enviar" não tem tabela de origem pra selecionar existente.
+    if (v === "nenhum") setModo("novo");
+  };
 
   const { data: polos = [] } = useQuery({
     queryKey: ["polos-ativacao"],
@@ -229,8 +292,13 @@ export function AcompanhamentoView() {
   });
 
   const opcoesExistentes = useMemo(() => {
-    if (origemTipoAtual === "polo")
-      return polos.map((p) => ({ id: p.id, nome: p.nome, email: p.email, contato: p.contato }));
+    if (origemTipoAtual === "polo") {
+      // Reunião/Reativação filtram pela situação correspondente; Ativação
+      // mantém o comportamento antigo (lista todos os polos).
+      const situacaoAlvo = destino === "reuniao" ? "reuniao" : destino === "reativacao" ? "desligado" : null;
+      const lista = situacaoAlvo ? polos.filter((p) => p.situacao === situacaoAlvo) : polos;
+      return lista.map((p) => ({ id: p.id, nome: p.nome, email: p.email, contato: p.contato }));
+    }
     if (origemTipoAtual === "negociacao")
       return negociacoes.map((n) => ({
         id: n.id,
@@ -238,8 +306,10 @@ export function AcompanhamentoView() {
         email: n.email,
         contato: n.contato,
       }));
-    return escolas.map((e) => ({ id: e.id, nome: e.nome, email: e.email, contato: e.contato }));
-  }, [origemTipoAtual, polos, negociacoes, escolas]);
+    if (origemTipoAtual === "escola_tecnica")
+      return escolas.map((e) => ({ id: e.id, nome: e.nome, email: e.email, contato: e.contato }));
+    return [];
+  }, [origemTipoAtual, destino, polos, negociacoes, escolas]);
 
   const abrirNovo = (etapa: Etapa = "mapeamento") => {
     setEditId(null);
@@ -260,7 +330,7 @@ export function AcompanhamentoView() {
       nome: a.nome,
       contato: formatarTelefoneSeAplicavel(a.contato ?? ""),
       email: a.email ?? "",
-      destino: a.destino,
+      destino: destinoParaSel(a.destino),
       observacao: a.observacao ?? "",
     });
     setDialogOpen(true);
@@ -273,7 +343,7 @@ export function AcompanhamentoView() {
       nome: a.nome,
       contato: formatarTelefoneSeAplicavel(a.contato ?? ""),
       email: a.email ?? "",
-      destino: a.destino,
+      destino: destinoParaSel(a.destino),
       observacao: a.observacao ?? "",
     });
     setDialogOpen(true);
@@ -303,7 +373,7 @@ export function AcompanhamentoView() {
             nome: editForm.nome.trim(),
             contato: editForm.contato.trim() || undefined,
             email: editForm.email.trim() || undefined,
-            destino: editForm.destino,
+            destino: selParaDestino(editForm.destino) ?? undefined,
             observacao: editForm.observacao.trim() || undefined,
           },
         });
@@ -318,7 +388,7 @@ export function AcompanhamentoView() {
             nome: selecionado.nome,
             contato: selecionado.contato || undefined,
             email: selecionado.email || undefined,
-            destino,
+            destino: selParaDestino(destino) ?? undefined,
             origem_tipo: origemTipoAtual,
             origem_id: selecionado.id,
           },
@@ -329,14 +399,15 @@ export function AcompanhamentoView() {
         return;
       }
 
-      // Novo cliente: cadastro completo na tela de destino + entrada no funil.
+      // Novo cliente: cadastro completo na tela de destino + entrada no funil
+      // (exceto "Não enviar", que não tem tela de destino).
       const nome = novoForm.nome.trim();
       const contato = novoForm.contato.trim() || undefined;
       const email = novoForm.email.trim() || undefined;
       const observacao = novoForm.observacao.trim() || undefined;
 
-      let origemId2: string;
-      if (destino === "ativacao") {
+      let origemId2: string | undefined;
+      if (destino === "ativacao" || destino === "reuniao" || destino === "reativacao") {
         const { id } = await createPoloFn({
           data: {
             nivel: novoForm.nivel,
@@ -344,9 +415,36 @@ export function AcompanhamentoView() {
             contato,
             email,
             produto: novoForm.produto.trim() || undefined,
-            data_ativacao: novoForm.data_ativacao || undefined,
-            valor_ativacao: novoForm.valor_ativacao ? Number(novoForm.valor_ativacao) : undefined,
+            situacao: SITUACAO_POR_DESTINO[destino],
             observacao,
+            ...(destino === "ativacao"
+              ? {
+                  data_ativacao: novoForm.data_ativacao || undefined,
+                  valor_ativacao: novoForm.valor_ativacao
+                    ? Number(novoForm.valor_ativacao)
+                    : undefined,
+                }
+              : {}),
+            ...(destino === "reuniao"
+              ? {
+                  data_reuniao: novoForm.data_reuniao || undefined,
+                  horario_reuniao: novoForm.horario_reuniao || undefined,
+                  faturamento: novoForm.faturamento ? Number(novoForm.faturamento) : undefined,
+                  link_reuniao: novoForm.link_reuniao.trim() || undefined,
+                  responsavel_id: novoForm.responsavel_id || undefined,
+                }
+              : {}),
+            ...(destino === "reativacao"
+              ? {
+                  data_reativacao: novoForm.data_reativacao || undefined,
+                  valor_reativacao: novoForm.valor_reativacao
+                    ? Number(novoForm.valor_reativacao)
+                    : undefined,
+                  data_saida: novoForm.data_saida || undefined,
+                  motivo_saida: novoForm.motivo_saida.trim() || undefined,
+                  reativado_por: novoForm.reativado_por || undefined,
+                }
+              : {}),
           },
         });
         origemId2 = id;
@@ -365,7 +463,7 @@ export function AcompanhamentoView() {
         });
         origemId2 = id;
         qc.invalidateQueries({ queryKey: ["negociacoes"] });
-      } else {
+      } else if (destino === "escola_tecnica") {
         const { id } = await createEscolaFn({
           data: {
             nome,
@@ -380,13 +478,15 @@ export function AcompanhamentoView() {
         origemId2 = id;
         qc.invalidateQueries({ queryKey: ["escolas-tecnicas"] });
       }
+      // destino === "nenhum": não cadastra em nenhuma tabela de destino,
+      // segue direto pro acompanhamento.
 
       const { id } = await createFn({
         data: {
           nome,
           contato,
           email,
-          destino,
+          destino: selParaDestino(destino) ?? undefined,
           origem_tipo: origemTipoAtual,
           origem_id: origemId2,
         },
@@ -540,8 +640,8 @@ export function AcompanhamentoView() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">{a.nome}</p>
-                        <Badge className={DESTINO_BADGE[a.destino]}>
-                          {DESTINO_LABEL[a.destino]}
+                        <Badge className={DESTINO_BADGE[destinoParaSel(a.destino)]}>
+                          {DESTINO_LABEL[destinoParaSel(a.destino)]}
                         </Badge>
                       </div>
                       {(a.contato || a.email) && (
@@ -671,7 +771,7 @@ export function AcompanhamentoView() {
                 <Label>Destino</Label>
                 <Select
                   value={editForm.destino}
-                  onValueChange={(v) => setEditForm((f) => ({ ...f, destino: v as Destino }))}
+                  onValueChange={(v) => setEditForm((f) => ({ ...f, destino: v as DestinoSel }))}
                   disabled={viewOnly}
                 >
                   <SelectTrigger>
@@ -679,8 +779,11 @@ export function AcompanhamentoView() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ativacao">Ativação</SelectItem>
+                    <SelectItem value="reuniao">Reuniões</SelectItem>
+                    <SelectItem value="reativacao">Reativação</SelectItem>
                     <SelectItem value="negociacoes">Negociações</SelectItem>
                     <SelectItem value="escola_tecnica">Escola Técnica</SelectItem>
+                    <SelectItem value="nenhum">Não enviar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -701,44 +804,46 @@ export function AcompanhamentoView() {
                 <Label>Destino</Label>
                 <Select
                   value={destino}
-                  onValueChange={(v) => {
-                    setDestino(v as Destino);
-                    setOrigemId("");
-                  }}
+                  onValueChange={(v) => selecionarDestino(v as DestinoSel)}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ativacao">Ativação</SelectItem>
+                    <SelectItem value="reuniao">Reuniões</SelectItem>
+                    <SelectItem value="reativacao">Reativação</SelectItem>
                     <SelectItem value="negociacoes">Negociações</SelectItem>
                     <SelectItem value="escola_tecnica">Escola Técnica</SelectItem>
+                    <SelectItem value="nenhum">Não enviar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex gap-2 rounded-lg bg-muted p-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => setModo("novo")}
-                  className={`flex-1 rounded-md py-1.5 font-medium transition-colors ${
-                    modo === "novo" ? "bg-background shadow-sm" : "text-muted-foreground"
-                  }`}
-                >
-                  Novo cliente
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModo("existente")}
-                  className={`flex-1 rounded-md py-1.5 font-medium transition-colors ${
-                    modo === "existente" ? "bg-background shadow-sm" : "text-muted-foreground"
-                  }`}
-                >
-                  Selecionar existente
-                </button>
-              </div>
+              {destino !== "nenhum" && (
+                <div className="flex gap-2 rounded-lg bg-muted p-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setModo("novo")}
+                    className={`flex-1 rounded-md py-1.5 font-medium transition-colors ${
+                      modo === "novo" ? "bg-background shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    Novo cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModo("existente")}
+                    className={`flex-1 rounded-md py-1.5 font-medium transition-colors ${
+                      modo === "existente" ? "bg-background shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    Selecionar existente
+                  </button>
+                </div>
+              )}
 
-              {modo === "existente" ? (
+              {destino !== "nenhum" && modo === "existente" ? (
                 <div className="space-y-1.5">
                   <Label>Cliente</Label>
                   <Select value={origemId} onValueChange={setOrigemId}>
@@ -761,7 +866,7 @@ export function AcompanhamentoView() {
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {destino === "ativacao" && (
+                  {(destino === "ativacao" || destino === "reuniao" || destino === "reativacao") && (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label>Nível</Label>
                       <RadioGroup
@@ -810,16 +915,19 @@ export function AcompanhamentoView() {
                     />
                   </div>
 
+                  {(destino === "ativacao" || destino === "reuniao" || destino === "reativacao") && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="ac-novo-produto">Produto</Label>
+                      <Input
+                        id="ac-novo-produto"
+                        value={novoForm.produto}
+                        onChange={(e) => setNovoForm((f) => ({ ...f, produto: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
                   {destino === "ativacao" && (
                     <>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="ac-novo-produto">Produto</Label>
-                        <Input
-                          id="ac-novo-produto"
-                          value={novoForm.produto}
-                          onChange={(e) => setNovoForm((f) => ({ ...f, produto: e.target.value }))}
-                        />
-                      </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="ac-novo-data">Data de ativação</Label>
                         <Input
@@ -842,6 +950,145 @@ export function AcompanhamentoView() {
                           onChange={(e) =>
                             setNovoForm((f) => ({ ...f, valor_ativacao: e.target.value }))
                           }
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {destino === "reuniao" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-data-reuniao">Data da reunião</Label>
+                        <Input
+                          id="ac-novo-data-reuniao"
+                          type="date"
+                          value={novoForm.data_reuniao}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, data_reuniao: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-horario-reuniao">Horário</Label>
+                        <Input
+                          id="ac-novo-horario-reuniao"
+                          type="time"
+                          value={novoForm.horario_reuniao}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, horario_reuniao: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-faturamento">Faturamento do polo (R$)</Label>
+                        <Input
+                          id="ac-novo-faturamento"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={novoForm.faturamento}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, faturamento: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-link-reuniao">Link da reunião</Label>
+                        <Input
+                          id="ac-novo-link-reuniao"
+                          value={novoForm.link_reuniao}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, link_reuniao: e.target.value }))
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Responsável pela reunião</Label>
+                        <Select
+                          value={novoForm.responsavel_id}
+                          onValueChange={(v) => setNovoForm((f) => ({ ...f, responsavel_id: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um membro" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {membrosAtribuiveis.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+
+                  {destino === "reativacao" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-data-reativacao">Data de reativação</Label>
+                        <Input
+                          id="ac-novo-data-reativacao"
+                          type="date"
+                          value={novoForm.data_reativacao}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, data_reativacao: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-valor-reativacao">Valor de reativação (R$)</Label>
+                        <Input
+                          id="ac-novo-valor-reativacao"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={novoForm.valor_reativacao}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, valor_reativacao: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ac-novo-data-saida">Data de saída</Label>
+                        <Input
+                          id="ac-novo-data-saida"
+                          type="date"
+                          value={novoForm.data_saida}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, data_saida: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Reativado por</Label>
+                        <Select
+                          value={novoForm.reativado_por}
+                          onValueChange={(v) => setNovoForm((f) => ({ ...f, reativado_por: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {membrosAtribuiveis.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="ac-novo-motivo-saida">Motivo da saída</Label>
+                        <Textarea
+                          id="ac-novo-motivo-saida"
+                          rows={3}
+                          value={novoForm.motivo_saida}
+                          onChange={(e) =>
+                            setNovoForm((f) => ({ ...f, motivo_saida: e.target.value }))
+                          }
+                          placeholder="Descreva o motivo..."
                         />
                       </div>
                     </>

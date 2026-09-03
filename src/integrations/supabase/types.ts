@@ -39,7 +39,7 @@ export type Database = {
           contato: string | null;
           criado_em: string;
           criado_por: string | null;
-          destino: Database["public"]["Enums"]["acompanhamento_destino"];
+          destino: Database["public"]["Enums"]["acompanhamento_destino"] | null;
           email: string | null;
           etapa: Database["public"]["Enums"]["acompanhamento_etapa"];
           id: string;
@@ -53,7 +53,7 @@ export type Database = {
           contato?: string | null;
           criado_em?: string;
           criado_por?: string | null;
-          destino: Database["public"]["Enums"]["acompanhamento_destino"];
+          destino?: Database["public"]["Enums"]["acompanhamento_destino"] | null;
           email?: string | null;
           etapa?: Database["public"]["Enums"]["acompanhamento_etapa"];
           id?: string;
@@ -67,7 +67,7 @@ export type Database = {
           contato?: string | null;
           criado_em?: string;
           criado_por?: string | null;
-          destino?: Database["public"]["Enums"]["acompanhamento_destino"];
+          destino?: Database["public"]["Enums"]["acompanhamento_destino"] | null;
           email?: string | null;
           etapa?: Database["public"]["Enums"]["acompanhamento_etapa"];
           id?: string;
@@ -904,7 +904,12 @@ export type Database = {
       tem_perfil: { Args: { _user_id: string }; Returns: boolean };
     };
     Enums: {
-      acompanhamento_destino: "ativacao" | "negociacoes" | "escola_tecnica";
+      acompanhamento_destino:
+        | "ativacao"
+        | "negociacoes"
+        | "escola_tecnica"
+        | "reuniao"
+        | "reativacao";
       acompanhamento_etapa:
         | "mapeamento"
         | "primeiro_contato"
@@ -1050,7 +1055,13 @@ export const Constants = {
   },
   public: {
     Enums: {
-      acompanhamento_destino: ["ativacao", "negociacoes", "escola_tecnica"],
+      acompanhamento_destino: [
+        "ativacao",
+        "negociacoes",
+        "escola_tecnica",
+        "reuniao",
+        "reativacao",
+      ],
       acompanhamento_etapa: [
         "mapeamento",
         "primeiro_contato",
