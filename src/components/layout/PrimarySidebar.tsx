@@ -22,6 +22,7 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useTasks, type WorkspaceView } from "@/lib/tasks-store";
 import { InviteDialog } from "./InviteDialog";
@@ -53,6 +54,7 @@ const ROTULO_POR_WORKSPACE: Partial<Record<WorkspaceView["tipo"], string>> = {
 };
 
 export function PrimarySidebar() {
+  const navigate = useNavigate();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const { workspace, setWorkspace, myCargo } = useTasks();
@@ -172,7 +174,7 @@ export function PrimarySidebar() {
         )}
 
         {/* Nav */}
-        <nav className={cn("flex-1 pt-3", expanded ? "px-2" : "px-2")}>
+        <nav className="min-h-0 flex-1 overflow-y-auto px-2 pt-3">
           {items.map((item) => (
             <NavButton
               key={item.label}
@@ -214,7 +216,7 @@ export function PrimarySidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-sidebar-border p-2">
+        <div className="shrink-0 border-t border-sidebar-border p-2">
           <NavButton
             icon={theme === "dark" ? Sun : Moon}
             label={theme === "dark" ? "Modo claro" : "Modo escuro"}
@@ -227,8 +229,9 @@ export function PrimarySidebar() {
             label="Sair"
             expanded={expanded}
             active={false}
-            onClick={() => {
-              supabase.auth.signOut();
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/login", replace: true });
             }}
           />
         </div>

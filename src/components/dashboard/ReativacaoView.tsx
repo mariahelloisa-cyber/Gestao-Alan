@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -321,22 +322,25 @@ export function ReativacaoView() {
             Polos reativados — dados de ativação, data e motivo da saída.
           </p>
         </div>
-        <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
-          <Plus className="mr-1.5 h-4 w-4" /> Novo polo
-        </Button>
+        <div className="flex flex-col items-stretch gap-2">
+          <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
+            <Plus className="mr-1.5 h-4 w-4" /> Novo polo
+          </Button>
+          <CadastrarVendaButton polos={polos} />
+        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
           <p className="text-sm text-muted-foreground">Polos reativados</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {polosDesligados.length}
+            {polosFiltrados.length}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
           <p className="text-sm text-muted-foreground">Valor de reativação</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {formatarValor(polosDesligados.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0))}
+            {formatarValor(polosFiltrados.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0))}
           </p>
         </div>
       </div>
@@ -700,6 +704,8 @@ export function ReativacaoView() {
               </Select>
             </div>
 
+            {editAlvo && <VendasDoPolo poloId={editAlvo.id} />}
+
             {/* Os dois textos lado a lado encurtam bastante a altura do diálogo. */}
             <div className="space-y-1.5">
               <Label htmlFor="novo-motivo-saida">Motivo da saída</Label>
@@ -793,6 +799,8 @@ export function ReativacaoView() {
                   {nomeMembro(verAlvo.reativado_por)}
                 </DetailField>
               </DetailSection>
+
+              <VendasDoPolo poloId={verAlvo.id} somenteLeitura />
 
               {verAlvo.observacao && (
                 <DetailSection icon={FileText} title="Observação">

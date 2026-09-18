@@ -1126,7 +1126,7 @@ function ResultadoMetaFaixa({
           )}
         </div>
 
-        {/* Ritmo */}
+        {/* Projeção*/}
         <div className="sm:pl-6">
           <div className="text-xs text-muted-foreground">Ritmo</div>
           {!isMesAtual ? (
@@ -1185,10 +1185,6 @@ function ResultadoMetaFaixa({
 
 /**
  * Polos ativos no período — estoque, não fluxo.
- *
- * Um polo ativado há dois anos e ainda ativo entra em `total` sem nunca ter
- * "entrado" no período; por isso o card mostra a composição inteira, senão o
- * número sozinho parece não bater com as ativações do mês.
  */
 function BaseAtivaCard({
   base,

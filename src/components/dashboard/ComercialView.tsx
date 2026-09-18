@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -267,11 +268,14 @@ export function ComercialView() {
     salvarMut.mutate({ id: editId ?? undefined, ...form });
   };
 
-  const valorTotal = noComercial.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0);
+  // Os cards seguem os filtros aplicados (período de envio e busca).
+  const valorTotal = polosFiltrados.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0);
   const mesAtual = hojeIso().slice(0, 7); // "YYYY-MM"
-  const enviadosNoMes = noComercial.filter((p) =>
-    p.enviado_comercial_em?.startsWith(mesAtual),
-  ).length;
+  const periodoAtivo = !!dataDe || !!dataAte;
+  // Com período filtrado, "enviados" passa a ser o total dentro do período.
+  const enviadosNoMes = periodoAtivo
+    ? polosFiltrados.length
+    : polosFiltrados.filter((p) => p.enviado_comercial_em?.startsWith(mesAtual)).length;
 
   return (
     <div className="w-full space-y-6 px-6 py-6">
@@ -282,20 +286,25 @@ export function ComercialView() {
             Polos enviados para o time comercial. Eles continuam aparecendo em Ativação.
           </p>
         </div>
-        <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
-          <Plus className="mr-1.5 h-4 w-4" /> Novo polo
-        </Button>
+        <div className="flex flex-col items-stretch gap-2">
+          <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
+            <Plus className="mr-1.5 h-4 w-4" /> Novo polo
+          </Button>
+          <CadastrarVendaButton polos={polos} />
+        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <p className="text-sm text-muted-foreground">Polos no comercial</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {noComercial.length}
+            {polosFiltrados.length}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <p className="text-sm text-muted-foreground">Enviados esse mês</p>
+          <p className="text-sm text-muted-foreground">
+            {periodoAtivo ? "Enviados no período" : "Enviados esse mês"}
+          </p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
             {enviadosNoMes}
           </p>
@@ -529,6 +538,8 @@ export function ComercialView() {
                   </DetailField>
                 </DetailSection>
 
+                {editId && <VendasDoPolo poloId={editId} somenteLeitura />}
+
                 {form.observacao && (
                   <DetailSection icon={FileText} title="Observação">
                     <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
@@ -673,6 +684,8 @@ export function ComercialView() {
                     }
                   />
                 </div>
+
+                {editId && <VendasDoPolo poloId={editId} />}
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="com-obs">Observação</Label>

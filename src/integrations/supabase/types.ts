@@ -570,6 +570,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      vendas_polos: {
+        Row: {
+          criado_em: string;
+          criado_por: string | null;
+          data_venda: string;
+          id: string;
+          observacao: string | null;
+          polo_id: string;
+          responsavel_id: string | null;
+          valor: number;
+        };
+        Insert: {
+          criado_em?: string;
+          criado_por?: string | null;
+          data_venda: string;
+          id?: string;
+          observacao?: string | null;
+          polo_id: string;
+          responsavel_id?: string | null;
+          valor: number;
+        };
+        Update: {
+          criado_em?: string;
+          criado_por?: string | null;
+          data_venda?: string;
+          id?: string;
+          observacao?: string | null;
+          polo_id?: string;
+          responsavel_id?: string | null;
+          valor?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vendas_polos_polo_id_fkey";
+            columns: ["polo_id"];
+            isOneToOne: false;
+            referencedRelation: "polos_ativacao";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       escolas_tecnicas: {
         Row: {
           atualizado_em: string;

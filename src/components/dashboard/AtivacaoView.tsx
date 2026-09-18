@@ -64,6 +64,7 @@ import {
   FileText,
 } from "lucide-react";
 import { hojeIso, nivelBadgeStyle } from "@/lib/polos-ui";
+import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
 import {
   DetailHeader,
   DetailHighlight,
@@ -295,9 +296,10 @@ export function AtivacaoView() {
     salvarMut.mutate({ id: editId ?? undefined, ...form });
   };
 
-  const totalCadastrado = polosAtivos.length;
-  const emOperacao = polosAtivos.filter((p) => p.situacao === "ativo").length;
-  const valorTotal = polosAtivos.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0);
+  // Os cards seguem os filtros aplicados (período, nível, valor, busca).
+  const totalCadastrado = polosFiltrados.length;
+  const emOperacao = polosFiltrados.filter((p) => p.situacao === "ativo").length;
+  const valorTotal = polosFiltrados.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0);
 
   return (
     <div className="w-full space-y-6 px-6 py-6">
@@ -310,9 +312,12 @@ export function AtivacaoView() {
             Cadastro e listagem dos polos ativos.
           </p>
         </div>
-        <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
-          <Plus className="mr-1.5 h-4 w-4" /> Novo polo
-        </Button>
+        <div className="flex flex-col items-stretch gap-2">
+          <Button onClick={abrirNovo} className="rounded-lg shadow-sm">
+            <Plus className="mr-1.5 h-4 w-4" /> Novo polo
+          </Button>
+          <CadastrarVendaButton polos={polos} />
+        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -629,6 +634,8 @@ export function AtivacaoView() {
                   </div>
                 </DetailSection>
 
+                {editId && <VendasDoPolo poloId={editId} somenteLeitura />}
+
                 {form.observacao && (
                   <DetailSection icon={FileText} title="Observação">
                     <p className="whitespace-pre-wrap sm:col-span-2">{form.observacao}</p>
@@ -757,6 +764,8 @@ export function AtivacaoView() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {editId && <VendasDoPolo poloId={editId} />}
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="polo-obs">Observação</Label>
