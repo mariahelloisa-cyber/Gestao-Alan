@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTasks } from "@/lib/tasks-store";
 import { listPolos } from "@/lib/polos.functions";
+import { useVendasQuery } from "@/lib/vendas-query";
 import { listNegociacoes } from "@/lib/negociacoes.functions";
 import { listEscolasTecnicas } from "@/lib/escolas-tecnicas.functions";
 import { listAcompanhamentos } from "@/lib/acompanhamentos.functions";
@@ -121,6 +122,7 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
   const listMetasFn = useServerFn(listMetas);
   const listLeadsFn = useServerFn(listLeads);
 
+  const { data: vendas = [] } = useVendasQuery();
   const { data: polos = [] } = useQuery({
     queryKey: ["polos-ativacao"],
     queryFn: () => listPolosFn(),
@@ -208,6 +210,7 @@ export function ReportDialog({ apenasMinhas }: { apenasMinhas: boolean }) {
         gerarRelatorioExpansaoPDF(
           {
             polos,
+            vendas,
             negociacoes,
             escolas,
             acompanhamentos,

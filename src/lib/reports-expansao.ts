@@ -18,7 +18,10 @@ import {
   serieMensal,
   serieMensalValor,
   ticketMedio,
+  movimento,
+  vendasComoItens,
   type PoloMetrica,
+  type VendaMetrica,
 } from "./dashboard-metrics";
 
 /**
@@ -149,6 +152,8 @@ export interface LeadRelatorio {
 
 export interface DadosRelatorio {
   polos: PoloRelatorio[];
+  /** Vendas cadastradas nos polos — somam ao valor de ativação. */
+  vendas: VendaMetrica[];
   negociacoes: NegociacaoRelatorio[];
   escolas: EscolaRelatorio[];
   acompanhamentos: AcompanhamentoRelatorio[];
@@ -565,7 +570,12 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
   const leadsResp = filtrarPorEscopo(dados.leads, escopoId);
 
   const ativ = ativacoes(polosResp, periodo);
+  const vendasResp = vendasComoItens(dados.vendas, dados.polos, escopoId);
+  const valorVendas = movimento(vendasResp, periodo).valor;
+  const valorAtivTotal = ativ.valor + valorVendas;
   const reat = reativacoes(polosReat, periodo);
+  const vendasReatResp = vendasComoItens(dados.vendas, dados.polos, escopoId, "reativacao");
+  const valorReatTotal = reat.valor + movimento(vendasReatResp, periodo).valor;
   const coorte = coorteConversao(polosResp, periodo, hoje);
   const base = composicaoBase(polosResp, periodo);
 
@@ -629,9 +639,9 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
         valor: coorte.realizadas > 0 ? pct(coorte.pct) : "—",
         nota: coorte.realizadas > 0 ? `${coorte.convertidas} de ${coorte.realizadas}` : undefined,
       },
-      { label: "Valor de ativação", valor: moeda(ativ.valor) },
+      { label: "Valor de ativação", valor: moeda(valorAtivTotal) },
       { label: "Reativações", valor: String(reat.quantidade) },
-      { label: "Valor de reativação", valor: moeda(reat.valor) },
+      { label: "Valor de reativação", valor: moeda(valorReatTotal) },
       { label: "Ticket médio de ativação", valor: moeda(ticketMedio(ativ)) },
       { label: "Ticket médio de reativação", valor: moeda(ticketMedio(reat)) },
       {
@@ -670,8 +680,11 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
 
     const linhas = alvo
       .map((m) => {
-        // Realizado = ativação + reativação, a mesma regra da dashboard.
+        // Realizado = ativação + vendas do polo + reativação, a mesma regra da dashboard.
         const realizado =
+          movimento(vendasComoItens(dados.vendas, dados.polos, m.id), periodoMeta).valor +
+          movimento(vendasComoItens(dados.vendas, dados.polos, m.id, "reativacao"), periodoMeta)
+            .valor +
           ativacoes(
             dados.polos.filter((p) => p.responsavel_id === m.id),
             periodoMeta,
@@ -693,7 +706,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     tituloSecao(
       c,
       `Meta x realizado — ${rotuloMes(mesMeta)}`,
-      "Realizado soma valor de ativação e de reativação no mês",
+      "Realizado soma valor de ativação, vendas e reativação no mês",
     );
 
     if (totalMeta > 0) {
@@ -922,7 +935,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       c,
       [
         { label: "Quantidade", valor: String(ativ.quantidade) },
-        { label: "Valor", valor: moeda(ativ.valor) },
+        { label: "Valor", valor: moeda(valorAtivTotal) },
         { label: "Ticket médio", valor: moeda(ticketMedio(ativ)) },
       ],
       3,
@@ -930,15 +943,38 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     tabela(
       c,
       ["Polo", "Nível", "Produto", "Data", "Valor", "Responsável", "Situação atual"],
-      lista.map((p) => [
-        p.nome,
-        p.nivel,
-        p.produto ?? "—",
-        data(p.data_ativacao),
-        moeda(p.valor_ativacao),
-        nomeMembro(p.responsavel_id),
-        SITUACAO_LABEL[p.situacao] ?? p.situacao,
-      ]),
+      lista
+        .map((p) => [
+          p.nome,
+          p.nivel,
+          p.produto ?? "—",
+          data(p.data_ativacao),
+          moeda(p.valor_ativacao),
+          nomeMembro(p.responsavel_id),
+          SITUACAO_LABEL[p.situacao] ?? p.situacao,
+        ])
+        .concat(
+          vendasResp
+            .filter((v) => dentroDoPeriodo(v.data, periodo))
+            .sort((a, b) => a.data.localeCompare(b.data))
+            .map((v) => {
+              const polo = dados.polos.find((p) => p.id === v.polo_id);
+              return [
+                polo?.nome ?? "—",
+                polo?.nivel ?? "—",
+                "Venda",
+                data(v.data),
+                moeda(v.valor),
+                nomeMembro(
+                  dados.vendas.find((x) => x.polo_id === v.polo_id && x.data_venda === v.data)
+                    ?.responsavel_id ??
+                    polo?.responsavel_id ??
+                    null,
+                ),
+                polo ? (SITUACAO_LABEL[polo.situacao] ?? polo.situacao) : "—",
+              ];
+            }),
+        ),
       {
         vazio: "Não houve ativações no período selecionado.",
         pillCol: 6,
@@ -958,7 +994,7 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       c,
       [
         { label: "Quantidade", valor: String(reat.quantidade) },
-        { label: "Valor", valor: moeda(reat.valor) },
+        { label: "Valor", valor: moeda(valorReatTotal) },
         { label: "Ticket médio", valor: moeda(ticketMedio(reat)) },
       ],
       3,
@@ -966,15 +1002,36 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
     tabela(
       c,
       ["Polo", "Nível", "Data da reativação", "Valor", "Reativado por", "Saída anterior", "Motivo"],
-      lista.map((p) => [
-        p.nome,
-        p.nivel,
-        data(p.data_reativacao),
-        moeda(p.valor_reativacao),
-        nomeMembro(p.reativado_por),
-        data(p.data_saida),
-        p.motivo_saida ?? "—",
-      ]),
+      lista
+        .map((p) => [
+          p.nome,
+          p.nivel,
+          data(p.data_reativacao),
+          moeda(p.valor_reativacao),
+          nomeMembro(p.reativado_por),
+          data(p.data_saida),
+          p.motivo_saida ?? "—",
+        ])
+        .concat(
+          vendasReatResp
+            .filter((v) => dentroDoPeriodo(v.data, periodo))
+            .sort((a, b) => a.data.localeCompare(b.data))
+            .map((v) => {
+              const polo = dados.polos.find((p) => p.id === v.polo_id);
+              const venda = dados.vendas.find(
+                (x) => x.polo_id === v.polo_id && x.data_venda === v.data,
+              );
+              return [
+                polo?.nome ?? "—",
+                polo?.nivel ?? "—",
+                data(v.data),
+                moeda(v.valor),
+                nomeMembro(venda?.responsavel_id ?? polo?.reativado_por ?? null),
+                "Venda",
+                "—",
+              ];
+            }),
+        ),
       { vazio: "Não houve reativações no período selecionado." },
     );
   }
@@ -1154,10 +1211,10 @@ export function gerarRelatorioExpansaoPDF(dados: DadosRelatorio, opts: OpcoesRel
       meses,
       polosReat.map((p) => p.data_reativacao),
     );
-    const sValor = serieMensalValor(
-      meses,
-      polosResp.map((p) => ({ data: p.data_ativacao, valor: p.valor_ativacao })),
-    );
+    const sValor = serieMensalValor(meses, [
+      ...polosResp.map((p) => ({ data: p.data_ativacao, valor: p.valor_ativacao })),
+      ...vendasResp,
+    ]);
     const sBase = serieBaseAtiva(meses, polosResp);
 
     const maxAtiv = Math.max(1, ...sAtiv.map((p) => p.total));

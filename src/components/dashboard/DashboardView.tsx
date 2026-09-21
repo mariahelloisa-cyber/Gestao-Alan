@@ -9,6 +9,7 @@ import { listNegociacoes } from "@/lib/negociacoes.functions";
 import { listEscolasTecnicas } from "@/lib/escolas-tecnicas.functions";
 import { listMetas } from "@/lib/metas.functions";
 import { listLeads } from "@/lib/leads.functions";
+import { useVendasQuery } from "@/lib/vendas-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -43,6 +44,8 @@ import { formatarValor, hojeIso, rotuloRelativo } from "@/lib/polos-ui";
 import {
   ativacoes,
   ativoEm,
+  movimento,
+  vendasComoItens,
   atividadeLeads,
   composicaoBase,
   contarNoPeriodo,
@@ -170,6 +173,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     queryKey: ["leads"],
     queryFn: () => listLeadsFn(),
   });
+  const { data: vendas = [] } = useVendasQuery();
 
   // --- Recortes por escopo --------------------------------------------------
   // Ativação, reunião e envio ao comercial pertencem ao `responsavel_id`;
@@ -177,6 +181,11 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const polosResp = useMemo(() => filtrarPorEscopo(polos, escopoId), [polos, escopoId]);
   const polosReat = useMemo(() => filtrarReativacoesPorEscopo(polos, escopoId), [polos, escopoId]);
   const leadsEscopo = useMemo(() => filtrarPorEscopo(leads, escopoId), [leads, escopoId]);
+  // Vendas cadastradas no polo entram como valor de ativação, na data da venda.
+  const vendasItens = useMemo(
+    () => vendasComoItens(vendas, polos, escopoId),
+    [vendas, polos, escopoId],
+  );
 
   // --- Prospecção — seção "Ligações e reuniões" -----------------------------
   // O trabalho do membro: ligar e marcar reunião. Conduzir a reunião é do
@@ -221,6 +230,18 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   // --- Indicadores do período — seção "Números do período" ------------------
   const periodoNumeros = filtroNumeros.periodo;
   const ativ = useMemo(() => ativacoes(polosResp, periodoNumeros), [polosResp, periodoNumeros]);
+  const vendasReatItens = useMemo(
+    () => vendasComoItens(vendas, polos, escopoId, "reativacao"),
+    [vendas, polos, escopoId],
+  );
+  const valorVendasReatPeriodo = useMemo(
+    () => movimento(vendasReatItens, periodoNumeros).valor,
+    [vendasReatItens, periodoNumeros],
+  );
+  const valorVendasPeriodo = useMemo(
+    () => movimento(vendasItens, periodoNumeros).valor,
+    [vendasItens, periodoNumeros],
+  );
   const reat = useMemo(() => reativacoes(polosReat, periodoNumeros), [polosReat, periodoNumeros]);
   const coorte = useMemo(
     () => coorteConversao(polosResp, periodoNumeros, hoje),
@@ -270,14 +291,19 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
 
   const resultadoMesFaixa = useMemo(
     () =>
-      ativacoes(polosResp, periodoMesFaixa).valor + reativacoes(polosReat, periodoMesFaixa).valor,
-    [polosResp, polosReat, periodoMesFaixa],
+      ativacoes(polosResp, periodoMesFaixa).valor +
+      movimento(vendasItens, periodoMesFaixa).valor +
+      reativacoes(polosReat, periodoMesFaixa).valor +
+      movimento(vendasReatItens, periodoMesFaixa).valor,
+    [polosResp, polosReat, vendasItens, vendasReatItens, periodoMesFaixa],
   );
   const resultadoMesAnteriorFaixa = useMemo(
     () =>
       ativacoes(polosResp, periodoMesAnteriorFaixa).valor +
-      reativacoes(polosReat, periodoMesAnteriorFaixa).valor,
-    [polosResp, polosReat, periodoMesAnteriorFaixa],
+      movimento(vendasItens, periodoMesAnteriorFaixa).valor +
+      reativacoes(polosReat, periodoMesAnteriorFaixa).valor +
+      movimento(vendasReatItens, periodoMesAnteriorFaixa).valor,
+    [polosResp, polosReat, vendasItens, vendasReatItens, periodoMesAnteriorFaixa],
   );
   const variacaoMesFaixaPct =
     resultadoMesAnteriorFaixa > 0
@@ -300,11 +326,16 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           polos.filter((p) => p.responsavel_id === m.id),
           periodoMesFaixa,
         ).valor;
+        const vendido = movimento(vendasComoItens(vendas, polos, m.id), periodoMesFaixa).valor;
         const reativado = reativacoes(
           polos.filter((p) => p.reativado_por === m.id),
           periodoMesFaixa,
         ).valor;
-        const realizado = ativado + reativado;
+        const vendidoReat = movimento(
+          vendasComoItens(vendas, polos, m.id, "reativacao"),
+          periodoMesFaixa,
+        ).valor;
+        const realizado = ativado + vendido + reativado + vendidoReat;
         const meta = metasDoMesFaixa.find((x) => x.usuario_id === m.id)?.valor_meta ?? 0;
         return {
           membro: m,
@@ -315,7 +346,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
       })
       .filter((r) => r.meta > 0 || r.realizado > 0)
       .sort((a, b) => b.pct - a.pct || b.realizado - a.realizado);
-  }, [membrosAtribuiveis, escopoId, polos, periodoMesFaixa, metasDoMesFaixa]);
+  }, [membrosAtribuiveis, escopoId, polos, vendas, periodoMesFaixa, metasDoMesFaixa]);
 
   const metaTime = rankingMetas.reduce((s, r) => s + r.meta, 0);
 
@@ -326,6 +357,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
   const meses = useMemo(() => {
     const chaves = polos
       .flatMap((p) => [p.data_ativacao, p.data_reativacao, p.data_saida])
+      .concat(vendas.map((v) => v.data_venda))
       .filter((d): d is string => !!d)
       .map((d) => d.slice(0, 7))
       .sort();
@@ -334,7 +366,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
       chaves[0],
       mesKeyAtual() > chaves[chaves.length - 1] ? mesKeyAtual() : chaves[chaves.length - 1],
     );
-  }, [polos]);
+  }, [polos, vendas]);
 
   const serieAtivacoesTotal = useMemo(
     () =>
@@ -387,9 +419,12 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     () =>
       serieMensalValor(
         mesesJanela,
-        polosResp.map((p) => ({ data: p.data_ativacao, valor: p.valor_ativacao })),
+        [
+          ...polosResp.map((p) => ({ data: p.data_ativacao, valor: p.valor_ativacao })),
+          ...vendasItens,
+        ],
       ),
-    [mesesJanela, polosResp],
+    [mesesJanela, polosResp, vendasItens],
   );
 
   // --- Ação do dia ----------------------------------------------------------
@@ -452,8 +487,16 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
     [polos, dataCorteExpansao],
   );
   const valorAtivo = useMemo(
-    () => polosAtivos.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0),
-    [polosAtivos],
+    () => {
+      const ids = new Set(polosAtivos.map((p) => p.id));
+      return (
+        polosAtivos.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0) +
+        vendasComoItens(vendas, polos, null)
+          .filter((v) => ids.has(v.polo_id) && v.data <= dataCorteExpansao)
+          .reduce((s, v) => s + v.valor, 0)
+      );
+    },
+    [polosAtivos, vendas, polos, dataCorteExpansao],
   );
 
   const funilRows = useMemo<BarRow[]>(
@@ -730,7 +773,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           />
           <MetricTile
             label="Valor de ativação"
-            value={formatarValor(ativ.valor)}
+            value={formatarValor(ativ.valor + valorVendasPeriodo)}
             hint={
               ticketMedio(ativ) != null
                 ? `Ticket médio: ${formatarValor(ticketMedio(ativ))}`
@@ -746,7 +789,7 @@ export function DashboardView({ apenasMinhas = false }: { apenasMinhas?: boolean
           />
           <MetricTile
             label="Valor de reativação"
-            value={formatarValor(reat.valor)}
+            value={formatarValor(reat.valor + valorVendasReatPeriodo)}
             hint={
               ticketMedio(reat) != null
                 ? `Ticket médio: ${formatarValor(ticketMedio(reat))}`

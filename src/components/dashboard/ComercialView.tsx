@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
+import { useVendasQuery } from "@/lib/vendas-query";
+import { somaVendasPorPolo, vendasComoItens } from "@/lib/dashboard-metrics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -141,6 +144,9 @@ export function ComercialView() {
     retry: 1,
   });
 
+  const { data: vendas = [] } = useVendasQuery();
+  const vendasPorPolo = useMemo(() => somaVendasPorPolo(vendas, polos), [vendas, polos]);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["polos-ativacao"] });
 
   // O marcador é independente da situação: um polo pode estar aqui e em
@@ -269,7 +275,12 @@ export function ComercialView() {
   };
 
   // Os cards seguem os filtros aplicados (período de envio e busca).
-  const valorTotal = polosFiltrados.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0);
+  const idsFiltrados = new Set(polosFiltrados.map((p) => p.id));
+  const valorTotal =
+    polosFiltrados.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0) +
+    vendasComoItens(vendas, polos, null)
+      .filter((v) => idsFiltrados.has(v.polo_id))
+      .reduce((s, v) => s + v.valor, 0);
   const mesAtual = hojeIso().slice(0, 7); // "YYYY-MM"
   const periodoAtivo = !!dataDe || !!dataAte;
   // Com período filtrado, "enviados" passa a ser o total dentro do período.
@@ -430,7 +441,13 @@ export function ComercialView() {
                       </div>
                     </TableCell>
                     <TableCell>{formatarData(p.enviado_comercial_em)}</TableCell>
-                    <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
+                    <TableCell>
+                      {formatarValor(
+                        p.valor_ativacao != null || vendasPorPolo.has(p.id)
+                          ? (p.valor_ativacao ?? 0) + (vendasPorPolo.get(p.id) ?? 0)
+                          : null,
+                      )}
+                    </TableCell>
                     <TableCell>
                       {membros.find((m) => m.id === p.responsavel_id)?.nome ?? "—"}
                     </TableCell>
@@ -484,7 +501,9 @@ export function ComercialView() {
 
       {/* Cadastrar / editar / visualizar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent
+          className={cn("max-h-[85vh] overflow-y-auto", viewOnly ? "max-w-4xl" : "max-w-lg")}
+        >
           {viewOnly ? (
             <>
               <DetailHeader
@@ -502,16 +521,13 @@ export function ComercialView() {
                   </DetailHighlightItem>
                 </DetailHighlight>
 
-                <DetailSection icon={Phone} title="Informações de contato">
+                <DetailSection icon={Phone} title="Contato e produto" cols={4}>
                   <DetailField icon={Phone} label="Contato">
                     {form.contato || "—"}
                   </DetailField>
                   <DetailField icon={Mail} label="E-mail">
                     {form.email || "—"}
                   </DetailField>
-                </DetailSection>
-
-                <DetailSection icon={GraduationCap} title="Informações do produto">
                   <DetailField icon={GraduationCap} label="Produto">
                     {form.produto || "—"}
                   </DetailField>
@@ -520,14 +536,14 @@ export function ComercialView() {
                   </DetailField>
                 </DetailSection>
 
-                <DetailSection icon={DollarSign} title="Ativação e valores">
+                <DetailSection icon={DollarSign} title="Ativação e valores" cols={3}>
                   <DetailField icon={Calendar} label="Data de ativação">
                     {formatarData(form.data_ativacao || null)}
                   </DetailField>
                   <DetailField icon={DollarSign} label="Valor de ativação">
                     {formatarValor(form.valor_ativacao ? Number(form.valor_ativacao) : null)}
                   </DetailField>
-                  <DetailField icon={User} label="Responsável" full>
+                  <DetailField icon={User} label="Responsável">
                     {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
                   </DetailField>
                 </DetailSection>

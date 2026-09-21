@@ -310,22 +310,13 @@ export function gerarRelatorioTarefasPDF(tarefas: Tarefa[], filtros: RelatorioFi
   ];
   doc.text(infoLinhas, 14, 24);
 
-  // Reserva espaço fixo para o bloco "Prazos" no rodapé da mesma página e mede
-  // de verdade (não estima) quanto a tabela vai ocupar, encolhendo
-  // fonte/padding o quanto for preciso pra caber tudo sem cortar nada, em vez
-  // de criar outra página.
-  const startY = 24 + infoLinhas.length * 5 + 3;
+   const startY = 24 + infoLinhas.length * 5 + 3;
   const pageHeight = doc.internal.pageSize.getHeight();
   const alturaDisponivelTabela = pageHeight - startY - RESERVADO_PRAZOS - MARGEM_INFERIOR;
 
   const { finalY, coube } = desenharTabelaTarefas(doc, tarefas, startY, alturaDisponivelTabela);
 
-  // Rede de segurança: só entra em cena em casos extremos (relatório com
-  // tantas tarefas que nem no tamanho mínimo de fonte a tabela deixou espaço)
-  // — aí sim o bloco de prazos vai pra próxima página em vez de sair cortado
-  // no rodapé da primeira. Usa a MESMA reserva do orçamento acima, então só
-  // dispara se a medição real destoou do que foi previsto.
-  let y: number;
+   let y: number;
   if (!coube || finalY + RESERVADO_PRAZOS > pageHeight - MARGEM_INFERIOR) {
     doc.addPage();
     y = 20;

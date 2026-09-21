@@ -55,11 +55,14 @@ export function DetailSection({
   title,
   children,
   className,
+  cols = 2,
 }: {
   icon: LucideIcon;
   title: string;
   children: React.ReactNode;
   className?: string;
+  /** Quantos campos por linha (em telas largas). */
+  cols?: 2 | 3 | 4;
 }) {
   return (
     <div className={cn("rounded-lg border border-border p-4", className)}>
@@ -67,7 +70,16 @@ export function DetailSection({
         <Icon className="h-4 w-4" />
         {title}
       </div>
-      <div className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">{children}</div>
+      <div
+        className={cn(
+          "grid gap-x-4 gap-y-3 text-sm",
+          cols === 2 && "sm:grid-cols-2",
+          cols === 3 && "sm:grid-cols-3",
+          cols === 4 && "sm:grid-cols-2 md:grid-cols-4",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -85,7 +97,7 @@ export function DetailField({
   full?: boolean;
 }) {
   return (
-    <div className={cn("min-w-0 space-y-1", full && "sm:col-span-2")}>
+    <div className={cn("min-w-0 space-y-1", full && "sm:col-span-full")}>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}

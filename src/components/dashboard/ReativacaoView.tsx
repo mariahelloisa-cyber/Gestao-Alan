@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useVendasQuery } from "@/lib/vendas-query";
+import { somaVendasPorPolo, vendasComoItens } from "@/lib/dashboard-metrics";
 import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -195,6 +197,12 @@ export function ReativacaoView() {
     setValorMax("");
   };
 
+  const { data: vendas = [] } = useVendasQuery();
+  const vendasPorPolo = useMemo(
+    () => somaVendasPorPolo(vendas, polos, "reativacao"),
+    [vendas, polos],
+  );
+
   const polosFiltrados = useMemo(() => {
     const buscaNorm = busca.trim().toLowerCase();
     return polosDesligados.filter((p) => {
@@ -215,6 +223,17 @@ export function ReativacaoView() {
       return true;
     });
   }, [polosDesligados, busca, filtroNivel, dataDe, dataAte, valorMin, valorMax]);
+
+  // Vendas cadastradas nos polos listados, feitas após a reativação, somam ao valor.
+  const valorReativacaoTotal = useMemo(() => {
+    const ids = new Set(polosFiltrados.map((p) => p.id));
+    return (
+      polosFiltrados.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0) +
+      vendasComoItens(vendas, polos, null, "reativacao")
+        .filter((v) => ids.has(v.polo_id))
+        .reduce((s, v) => s + v.valor, 0)
+    );
+  }, [polosFiltrados, vendas, polos]);
 
   const nomeMembro = (id: string | null) => membros.find((m) => m.id === id)?.nome ?? "—";
 
@@ -340,7 +359,7 @@ export function ReativacaoView() {
         <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
           <p className="text-sm text-muted-foreground">Valor de reativação</p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {formatarValor(polosFiltrados.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0))}
+            {formatarValor(valorReativacaoTotal)}
           </p>
         </div>
       </div>
@@ -506,7 +525,13 @@ export function ReativacaoView() {
                       </div>
                     </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
-                    <TableCell>{formatarValor(p.valor_reativacao)}</TableCell>
+                    <TableCell>
+                      {formatarValor(
+                        p.valor_reativacao != null || vendasPorPolo.has(p.id)
+                          ? (p.valor_reativacao ?? 0) + (vendasPorPolo.get(p.id) ?? 0)
+                          : null,
+                      )}
+                    </TableCell>
                     <TableCell>{formatarData(p.data_reativacao)}</TableCell>
                     <TableCell>{formatarData(p.data_saida)}</TableCell>
                     <TableCell className="max-w-[220px] truncate" title={p.motivo_saida ?? ""}>
@@ -741,7 +766,7 @@ export function ReativacaoView() {
 
       {/* Visualizar */}
       <Dialog open={!!verAlvo} onOpenChange={(o) => !o && setVerAlvo(null)}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
           <DetailHeader
             icon={RotateCcw}
             title="Detalhes do polo"
@@ -758,16 +783,13 @@ export function ReativacaoView() {
                 </DetailHighlightItem>
               </DetailHighlight>
 
-              <DetailSection icon={Phone} title="Informações de contato">
+              <DetailSection icon={Phone} title="Contato e produto" cols={4}>
                 <DetailField icon={Phone} label="Contato">
                   {verAlvo.contato || "—"}
                 </DetailField>
                 <DetailField icon={Mail} label="E-mail">
                   {verAlvo.email || "—"}
                 </DetailField>
-              </DetailSection>
-
-              <DetailSection icon={GraduationCap} title="Informações do produto">
                 <DetailField icon={GraduationCap} label="Produto">
                   {verAlvo.produto || "—"}
                 </DetailField>
@@ -776,7 +798,7 @@ export function ReativacaoView() {
                 </DetailField>
               </DetailSection>
 
-              <DetailSection icon={DollarSign} title="Reativação e valores">
+              <DetailSection icon={DollarSign} title="Reativação e valores" cols={3}>
                 <DetailField icon={DollarSign} label="Valor de reativação">
                   {formatarValor(verAlvo.valor_reativacao)}
                 </DetailField>

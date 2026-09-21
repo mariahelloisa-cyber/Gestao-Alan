@@ -242,6 +242,46 @@ export function reativacoes(polos: PoloMetrica[], periodo: Periodo): Movimento {
   );
 }
 
+/** O subconjunto de `Venda` que as métricas leem. */
+export interface VendaMetrica {
+  polo_id: string;
+  valor: number | string;
+  data_venda: string;
+  responsavel_id: string | null;
+}
+
+/**
+ * Vendas cadastradas nos polos, como itens de valor (data + valor).
+ *
+ * Uma venda feita a partir da data de reativação do polo é valor de reativação;
+ * as anteriores são valor de ativação. Sem `responsavel_id` na venda, vale o
+ * dono do polo (`reativado_por` para reativação, `responsavel_id` para
+ * ativação). `membroId` nulo = time todo.
+ */
+export function vendasComoItens(
+  vendas: VendaMetrica[],
+  polos: {
+    id: string;
+    responsavel_id: string | null;
+    reativado_por?: string | null;
+    data_reativacao?: string | null;
+  }[],
+  membroId: string | null,
+  tipo: "ativacao" | "reativacao" = "ativacao",
+): { data: string; valor: number; polo_id: string }[] {
+  const porId = new Map(polos.map((p) => [p.id, p]));
+  return vendas
+    .filter((v) => {
+      const polo = porId.get(v.polo_id);
+      const reat = dia(polo?.data_reativacao ?? null);
+      if ((!!reat && v.data_venda.slice(0, 10) >= reat) !== (tipo === "reativacao")) return false;
+      if (!membroId) return true;
+      const dono = tipo === "reativacao" ? polo?.reativado_por : polo?.responsavel_id;
+      return (v.responsavel_id ?? dono ?? null) === membroId;
+    })
+    .map((v) => ({ data: v.data_venda, valor: Number(v.valor) || 0, polo_id: v.polo_id }));
+}
+
 /** Ticket médio — `null` quando não houve evento, para a tela mostrar "—". */
 export function ticketMedio(m: Movimento): number | null {
   return m.quantidade > 0 ? m.valor / m.quantidade : null;
@@ -371,4 +411,17 @@ export function atividadeLeads(leads: LeadMetrica[], periodo: Periodo): Atividad
       (l) => l.reuniao_marcada && dentroDoPeriodo(l.reuniao_marcada_em, periodo),
     ).length,
   };
+}
+
+/** Soma das vendas de cada polo (`polo_id` → valor), por tipo. Para a coluna "Valor" das listas. */
+export function somaVendasPorPolo(
+  vendas: VendaMetrica[],
+  polos: Parameters<typeof vendasComoItens>[1],
+  tipo: "ativacao" | "reativacao" = "ativacao",
+): Map<string, number> {
+  const soma = new Map<string, number>();
+  for (const v of vendasComoItens(vendas, polos, null, tipo)) {
+    soma.set(v.polo_id, (soma.get(v.polo_id) ?? 0) + v.valor);
+  }
+  return soma;
 }

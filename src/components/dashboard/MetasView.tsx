@@ -6,7 +6,8 @@ import { useTasks } from "@/lib/tasks-store";
 import { listPolos } from "@/lib/polos.functions";
 import { listMetas, setMeta } from "@/lib/metas.functions";
 import { listLeads } from "@/lib/leads.functions";
-import { atividadeLeads, coorteConversao } from "@/lib/dashboard-metrics";
+import { useVendasQuery } from "@/lib/vendas-query";
+import { atividadeLeads, coorteConversao, vendasComoItens } from "@/lib/dashboard-metrics";
 import { resolverPeriodo, type PeriodoPreset } from "@/lib/productivity";
 import { hojeIso } from "@/lib/polos-ui";
 import { PeriodFilter } from "./PeriodFilter";
@@ -131,6 +132,8 @@ export function MetasView() {
     retry: 1,
   });
 
+  const { data: vendas = [] } = useVendasQuery();
+
   const isLoading = loadingPolos || loadingMetas;
   const error = errorPolos ?? errorMetas;
 
@@ -183,9 +186,18 @@ export function MetasView() {
     return membrosOrdenados.map((m) => {
       const ativacoesDoMembro = ativacoesNoPeriodo.filter((p) => p.responsavel_id === m.id);
       const reativacoesDoMembro = reativacoesNoPeriodo.filter((p) => p.reativado_por === m.id);
+      // Vendas cadastradas no polo somam ao realizado, na data da venda.
+      const vendasDoMembro = vendasComoItens(vendas, polos, m.id).filter(
+        (v) => v.data >= de && v.data <= ate,
+      );
+      const vendasReatDoMembro = vendasComoItens(vendas, polos, m.id, "reativacao").filter(
+        (v) => v.data >= de && v.data <= ate,
+      );
       const valorAtivado =
         ativacoesDoMembro.reduce((s, p) => s + (p.valor_ativacao ?? 0), 0) +
-        reativacoesDoMembro.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0);
+        vendasDoMembro.reduce((s, v) => s + v.valor, 0) +
+        reativacoesDoMembro.reduce((s, p) => s + (p.valor_reativacao ?? 0), 0) +
+        vendasReatDoMembro.reduce((s, v) => s + v.valor, 0);
       const metaDoMembro = metasNoPeriodo.find((x) => x.usuario_id === m.id);
       const valorMeta = metaDoMembro?.valor_meta ?? 0;
 
@@ -230,6 +242,7 @@ export function MetasView() {
     metasNoPeriodo,
     leads,
     polos,
+    vendas,
     de,
     ate,
     hoje,

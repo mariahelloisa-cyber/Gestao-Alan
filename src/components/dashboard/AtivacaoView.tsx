@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { listPolos, createPolo, updatePolo, deletePolo } from "@/lib/polos.functions";
 import { useTasks } from "@/lib/tasks-store";
+import { useVendasQuery } from "@/lib/vendas-query";
+import { somaVendasPorPolo, vendasComoItens } from "@/lib/dashboard-metrics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +65,7 @@ import {
   User,
   FileText,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { hojeIso, nivelBadgeStyle } from "@/lib/polos-ui";
 import { CadastrarVendaButton, VendasDoPolo } from "@/components/dashboard/VendasPolo";
 import {
@@ -167,6 +170,9 @@ export function AtivacaoView() {
     retry: 1,
   });
 
+  const { data: vendas = [] } = useVendasQuery();
+  const vendasPorPolo = useMemo(() => somaVendasPorPolo(vendas, polos), [vendas, polos]);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["polos-ativacao"] });
 
   // Só quem está de fato em operação. As demais etapas do funil têm tela
@@ -224,6 +230,14 @@ export function AtivacaoView() {
       return true;
     });
   }, [polosAtivos, busca, filtroNivel, dataDe, dataAte, valorMin, valorMax]);
+
+  // Vendas cadastradas nos polos listados somam ao valor de ativação (filtro de data incluso).
+  const vendasFiltradas = useMemo(() => {
+    const ids = new Set(polosFiltrados.map((p) => p.id));
+    return vendasComoItens(vendas, polos, null).filter(
+      (v) => ids.has(v.polo_id) && (!dataDe || v.data >= dataDe) && (!dataAte || v.data <= dataAte),
+    );
+  }, [vendas, polos, polosFiltrados, dataDe, dataAte]);
 
   const abrirNovo = () => {
     setEditId(null);
@@ -299,7 +313,9 @@ export function AtivacaoView() {
   // Os cards seguem os filtros aplicados (período, nível, valor, busca).
   const totalCadastrado = polosFiltrados.length;
   const emOperacao = polosFiltrados.filter((p) => p.situacao === "ativo").length;
-  const valorTotal = polosFiltrados.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0);
+  const valorTotal =
+    polosFiltrados.reduce((soma, p) => soma + (p.valor_ativacao ?? 0), 0) +
+    vendasFiltradas.reduce((soma, v) => soma + v.valor, 0);
 
   return (
     <div className="w-full space-y-6 px-6 py-6">
@@ -510,7 +526,13 @@ export function AtivacaoView() {
                       </div>
                     </TableCell>
                     <TableCell>{formatarData(p.data_ativacao)}</TableCell>
-                    <TableCell>{formatarValor(p.valor_ativacao)}</TableCell>
+                    <TableCell>
+                      {formatarValor(
+                        p.valor_ativacao != null || vendasPorPolo.has(p.id)
+                          ? (p.valor_ativacao ?? 0) + (vendasPorPolo.get(p.id) ?? 0)
+                          : null,
+                      )}
+                    </TableCell>
                     <TableCell>
                       {membros.find((m) => m.id === p.responsavel_id)?.nome ?? "—"}
                     </TableCell>
@@ -573,7 +595,9 @@ export function AtivacaoView() {
 
       {/* Cadastrar / editar / visualizar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent
+          className={cn("max-h-[85vh] overflow-y-auto", viewOnly ? "max-w-4xl" : "max-w-lg")}
+        >
           {viewOnly ? (
             <>
               <DetailHeader
@@ -591,16 +615,13 @@ export function AtivacaoView() {
                   </DetailHighlightItem>
                 </DetailHighlight>
 
-                <DetailSection icon={Phone} title="Informações de contato">
+                <DetailSection icon={Phone} title="Contato e produto" cols={4}>
                   <DetailField icon={Phone} label="Contato">
                     {form.contato || "—"}
                   </DetailField>
                   <DetailField icon={Mail} label="E-mail">
                     {form.email || "—"}
                   </DetailField>
-                </DetailSection>
-
-                <DetailSection icon={GraduationCap} title="Informações do produto">
                   <DetailField icon={GraduationCap} label="Produto">
                     {form.produto || "—"}
                   </DetailField>
@@ -609,14 +630,14 @@ export function AtivacaoView() {
                   </DetailField>
                 </DetailSection>
 
-                <DetailSection icon={DollarSign} title="Ativação e valores">
+                <DetailSection icon={DollarSign} title="Ativação e valores" cols={3}>
                   <DetailField icon={Calendar} label="Data de ativação">
                     {formatarData(form.data_ativacao || null)}
                   </DetailField>
                   <DetailField icon={DollarSign} label="Valor de ativação">
                     {formatarValor(form.valor_ativacao ? Number(form.valor_ativacao) : null)}
                   </DetailField>
-                  <DetailField icon={User} label="Responsável" full>
+                  <DetailField icon={User} label="Responsável">
                     {membros.find((m) => m.id === form.responsavel_id)?.nome ?? "—"}
                   </DetailField>
                 </DetailSection>
