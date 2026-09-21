@@ -9,6 +9,8 @@ import {
   GraduationCap,
   Wallet,
   Clock,
+  CalendarClock,
+  BadgeDollarSign,
 } from "lucide-react";
 import type { Polo } from "@/lib/polos.functions";
 import {
@@ -113,8 +115,11 @@ export function ReuniaoListItem({
 }) {
   const nivel = polo.nivel as Nivel;
   const cor = NIVEL_COR[nivel];
-  const status = statusReuniao(polo.data_reuniao);
-  const atrasada = status.id === "atrasada";
+  const status = statusReuniao(polo);
+  const atrasada = status.id === "pagamento-atrasado";
+  // Já fechou e só falta o pagamento: "Fechou" vira "Registrar pagamento".
+  // "Não fechou" continua: o cliente pode desistir antes de pagar.
+  const aguardandoPagamento = !!polo.prazo_pagamento;
 
   return (
     <div
@@ -156,6 +161,14 @@ export function ReuniaoListItem({
             <Campo icone={User} label="Contato" valor={polo.contato || "—"} sub={polo.email} />
             <Campo icone={GraduationCap} label="Produto" valor={polo.produto || "—"} />
             <Campo icone={Wallet} label="Faturamento" valor={formatarValor(polo.faturamento)} />
+            {aguardandoPagamento && (
+              <Campo
+                icone={CalendarClock}
+                label="Prazo de pagamento"
+                valor={formatarData(polo.prazo_pagamento)}
+                sub={rotuloRelativo(polo.prazo_pagamento)}
+              />
+            )}
           </div>
         </div>
 
@@ -191,13 +204,23 @@ export function ReuniaoListItem({
             <AcaoIcone label="Editar" onClick={onEditar}>
               <Pencil className="h-4 w-4" />
             </AcaoIcone>
-            <AcaoIcone
-              label="Fechou — mover para Ativação"
-              onClick={onFechou}
-              className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-500"
-            >
-              <CircleCheck className="h-4 w-4" />
-            </AcaoIcone>
+            {aguardandoPagamento ? (
+              <AcaoIcone
+                label="Registrar pagamento — mover para Ativação"
+                onClick={onFechou}
+                className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-500"
+              >
+                <BadgeDollarSign className="h-4 w-4" />
+              </AcaoIcone>
+            ) : (
+              <AcaoIcone
+                label="Fechou"
+                onClick={onFechou}
+                className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-500"
+              >
+                <CircleCheck className="h-4 w-4" />
+              </AcaoIcone>
+            )}
             <AcaoIcone
               label="Não fechou — mover para Inativos"
               onClick={onNaoFechou}

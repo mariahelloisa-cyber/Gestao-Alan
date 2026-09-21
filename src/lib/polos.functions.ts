@@ -18,7 +18,7 @@ export const listPolos = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("polos_ativacao")
       .select(
-        "id, nivel, nome, contato, email, produto, data_ativacao, valor_ativacao, valor_reativacao, data_reativacao, situacao, data_saida, motivo_saida, observacao, criado_em, atualizado_em, responsavel_id, reativado_por, data_reuniao, horario_reuniao, faturamento, link_reuniao, enviado_comercial_em",
+        "id, nivel, nome, contato, email, produto, data_ativacao, valor_ativacao, valor_reativacao, data_reativacao, situacao, data_saida, motivo_saida, observacao, criado_em, atualizado_em, responsavel_id, reativado_por, data_reuniao, horario_reuniao, faturamento, link_reuniao, enviado_comercial_em, prazo_pagamento",
       )
       .order("criado_em", { ascending: false });
     if (error) throw new Error(error.message);
@@ -58,6 +58,9 @@ const camposOpcionais = {
   horario_reuniao: z.string().nullish(),
   faturamento: z.number().min(0).max(100_000_000).nullish(),
   link_reuniao: z.string().trim().max(500).nullish(),
+  // Fechou na reunião mas vai pagar depois: o polo segue em "Reuniões" até
+  // alguém registrar valor e data do pagamento.
+  prazo_pagamento: z.string().nullish(),
   // Marcador da página Comercial. Independe de `situacao`: o polo continua
   // aparecendo em Ativação enquanto também aparece em Comercial.
   enviado_comercial_em: z.string().nullish(),

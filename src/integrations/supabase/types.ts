@@ -509,6 +509,7 @@ export type Database = {
           nivel: Database["public"]["Enums"]["nivel_polo"];
           nome: string;
           observacao: string | null;
+          prazo_pagamento: string | null;
           produto: string | null;
           reativado_por: string | null;
           responsavel_id: string | null;
@@ -535,6 +536,7 @@ export type Database = {
           nivel: Database["public"]["Enums"]["nivel_polo"];
           nome: string;
           observacao?: string | null;
+          prazo_pagamento?: string | null;
           produto?: string | null;
           reativado_por?: string | null;
           responsavel_id?: string | null;
@@ -561,6 +563,7 @@ export type Database = {
           nivel?: Database["public"]["Enums"]["nivel_polo"];
           nome?: string;
           observacao?: string | null;
+          prazo_pagamento?: string | null;
           produto?: string | null;
           reativado_por?: string | null;
           responsavel_id?: string | null;

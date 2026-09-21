@@ -47,6 +47,7 @@ import {
   X,
   Users,
   AlarmClock,
+  BadgeDollarSign,
   ExternalLink,
 } from "lucide-react";
 import { ReunioesAgenda } from "./ReunioesCalendar";
@@ -69,7 +70,8 @@ import {
 import { cn } from "@/lib/utils";
 
 type Polo = Awaited<ReturnType<typeof listPolos>>[number];
-type Periodo = "todas" | "proximas" | "hoje" | "atrasadas";
+type Periodo = "todas" | "proximas" | "hoje" | "conclusao" | "pagamento" | "atrasadas";
+type FecharModo = "pago" | "pendente";
 
 /** Cadastro da reunião: dados do polo (sem valor/situação) + a reunião. */
 type FormState = {
@@ -242,10 +244,13 @@ export function ReunioesView() {
     return filtradosBase
       .filter((p) => {
         if (periodo === "todas") return true;
-        if (!p.data_reuniao) return false;
-        if (periodo === "atrasadas") return p.data_reuniao < hoje;
-        if (periodo === "hoje") return p.data_reuniao === hoje;
-        return p.data_reuniao >= hoje; // proximas
+        const s = statusReuniao(p, hoje).id;
+        if (periodo === "conclusao") return s === "aguardando-conclusao";
+        if (periodo === "pagamento")
+          return s === "aguardando-pagamento" || s === "pagamento-atrasado";
+        if (periodo === "atrasadas") return s === "pagamento-atrasado";
+        if (periodo === "hoje") return s === "hoje";
+        return s === "hoje" || s === "agendada"; // proximas
       })
       .sort(compararPorQuando);
   }, [filtradosBase, periodo]);
@@ -261,6 +266,8 @@ export function ReunioesView() {
   const [fecharData, setFecharData] = useState("");
   const [fecharValor, setFecharValor] = useState("");
   const [fecharResponsavel, setFecharResponsavel] = useState("");
+  const [fecharModo, setFecharModo] = useState<FecharModo>("pago");
+  const [fecharPrazo, setFecharPrazo] = useState("");
 
   const [naoFechouAlvo, setNaoFechouAlvo] = useState<Polo | null>(null);
 
@@ -307,6 +314,9 @@ export function ReunioesView() {
     // ativa, e trocar aqui é a exceção. Sem isso o campo voltaria a zerar o
     // responsável no fechamento.
     setFecharResponsavel(p.responsavel_id ?? "");
+    // Voltando a um polo que já fechou: o normal agora é registrar o pagamento.
+    setFecharModo("pago");
+    setFecharPrazo(p.prazo_pagamento ?? "");
   };
 
   const salvarMut = useMutation({
@@ -351,24 +361,41 @@ export function ReunioesView() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir polo."),
   });
 
-  /** Fechou: vira polo ativo e passa a aparecer em Ativação. */
+  /**
+   * Fechou. Pago: vira polo ativo e passa a aparecer em Ativação.
+   * Pendente: continua em Reuniões com o prazo de pagamento até alguém
+   * voltar e registrar valor e data.
+   */
   const fechouMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (modo: FecharModo) => {
       if (!fecharAlvo) return;
+      const base = {
+        id: fecharAlvo.id,
+        nivel: fecharAlvo.nivel as Nivel,
+        nome: fecharAlvo.nome,
+        responsavel_id: fecharResponsavel || null,
+      };
+      if (modo === "pendente") {
+        await updateFn({
+          data: { ...base, situacao: "reuniao", prazo_pagamento: fecharPrazo },
+        });
+        return;
+      }
       await updateFn({
         data: {
-          id: fecharAlvo.id,
-          nivel: fecharAlvo.nivel as Nivel,
-          nome: fecharAlvo.nome,
+          ...base,
           situacao: "ativo",
           data_ativacao: fecharData,
           valor_ativacao: fecharValor ? Number(fecharValor) : null,
-          responsavel_id: fecharResponsavel || null,
         },
       });
     },
-    onSuccess: () => {
-      toast.success("Polo fechado — agora ele aparece em Ativação.");
+    onSuccess: (_, modo) => {
+      toast.success(
+        modo === "pendente"
+          ? "Fechamento registrado — o polo fica aqui até o pagamento."
+          : "Polo fechado — agora ele aparece em Ativação.",
+      );
       setFecharAlvo(null);
       invalidate();
     },
@@ -385,6 +412,8 @@ export function ReunioesView() {
           nivel: naoFechouAlvo.nivel as Nivel,
           nome: naoFechouAlvo.nome,
           situacao: "inativo",
+          // Se tinha fechado e desistiu antes de pagar, o prazo não vale mais.
+          prazo_pagamento: null,
         },
       });
     },
@@ -405,18 +434,26 @@ export function ReunioesView() {
   };
 
   const confirmarFechou = () => {
-    if (!fecharData) {
-      toast.error("Informe a data de ativação.");
+    if (fecharModo === "pendente") {
+      if (!fecharPrazo) {
+        toast.error("Informe o prazo de pagamento.");
+        return;
+      }
+    } else if (!fecharData) {
+      toast.error("Informe a data do pagamento.");
       return;
     }
-    fechouMut.mutate();
+    fechouMut.mutate(fecharModo);
   };
 
   // --- Indicadores ----------------------------------------------------------
   const hoje = hojeIso();
-  const aguardandoConclusao = emReuniao.filter(
-    (p) => p.data_reuniao && p.data_reuniao < hoje,
-  ).length;
+  const statusIds = emReuniao.map((p) => statusReuniao(p, hoje).id);
+  const aguardandoConclusao = statusIds.filter((s) => s === "aguardando-conclusao").length;
+  const pagamentoAtrasado = statusIds.filter((s) => s === "pagamento-atrasado").length;
+  const aguardandoPagamento =
+    statusIds.filter((s) => s === "aguardando-pagamento").length + pagamentoAtrasado;
+  const alvoJaFechou = !!fecharAlvo?.prazo_pagamento;
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -460,7 +497,7 @@ export function ReunioesView() {
         </header>
 
         {/* Indicadores */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Indicador
             icone={Users}
             titulo="Polos em reunião"
@@ -474,6 +511,21 @@ export function ReunioesView() {
             valor={aguardandoConclusao}
             descricao="Reunião já passou e ninguém marcou se fechou."
             tom="bg-amber-500/10 text-amber-600 dark:text-amber-500"
+          />
+          <Indicador
+            icone={BadgeDollarSign}
+            titulo="Aguardando pagamento"
+            valor={aguardandoPagamento}
+            descricao={
+              pagamentoAtrasado > 0
+                ? `Fecharam e não pagaram — ${pagamentoAtrasado} com prazo vencido.`
+                : "Fecharam e ainda não pagaram."
+            }
+            tom={
+              pagamentoAtrasado > 0
+                ? "bg-red-500/10 text-red-600 dark:text-red-500"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500"
+            }
           />
         </div>
 
@@ -491,15 +543,17 @@ export function ReunioesView() {
 
           {modo === "lista" && (
             <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger className="h-9 w-[210px]">
                 <CalendarDays className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todas">Todas as datas</SelectItem>
+                <SelectItem value="todas">Todas</SelectItem>
                 <SelectItem value="proximas">Próximas</SelectItem>
                 <SelectItem value="hoje">Hoje</SelectItem>
-                <SelectItem value="atrasadas">Atrasadas</SelectItem>
+                <SelectItem value="conclusao">Aguardando conclusão</SelectItem>
+                <SelectItem value="pagamento">Aguardando pagamento</SelectItem>
+                <SelectItem value="atrasadas">Pagamento atrasado</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -677,7 +731,7 @@ export function ReunioesView() {
               <div className="space-y-5">
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const s = statusReuniao(poloVisto.data_reuniao);
+                    const s = statusReuniao(poloVisto);
                     return (
                       <span
                         className={cn(
@@ -732,6 +786,12 @@ export function ReunioesView() {
                       label="Responsável"
                       valor={membros.find((m) => m.id === poloVisto.responsavel_id)?.nome ?? "—"}
                     />
+                    {poloVisto.prazo_pagamento && (
+                      <Info
+                        label="Prazo de pagamento"
+                        valor={formatarData(poloVisto.prazo_pagamento)}
+                      />
+                    )}
                   </div>
                 </section>
 
@@ -918,33 +978,78 @@ export function ReunioesView() {
         <Dialog open={!!fecharAlvo} onOpenChange={(o) => !o && setFecharAlvo(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>"{fecharAlvo?.nome}" fechou</DialogTitle>
+              <DialogTitle>
+                {alvoJaFechou
+                  ? `Pagamento de "${fecharAlvo?.nome}"`
+                  : `"${fecharAlvo?.nome}" fechou`}
+              </DialogTitle>
               <DialogDescription>
-                Preencha os dados de ativação. O polo sai de Reuniões e passa a aparecer em
-                Ativação.
+                {fecharModo === "pago"
+                  ? "Informe o valor e a data do pagamento. O polo sai de Reuniões e passa a aparecer em Ativação."
+                  : "O polo continua em Reuniões até você registrar o pagamento. Passado o prazo, ele aparece como atrasado."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="fechar-data">Data de ativação</Label>
-                <Input
-                  id="fechar-data"
-                  type="date"
-                  value={fecharData}
-                  onChange={(e) => setFecharData(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="fechar-valor">Valor de ativação (R$)</Label>
-                <Input
-                  id="fechar-valor"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={fecharValor}
-                  onChange={(e) => setFecharValor(e.target.value)}
-                />
-              </div>
+              <RadioGroup
+                value={fecharModo}
+                onValueChange={(v) => setFecharModo(v as FecharModo)}
+                className="grid grid-cols-2 gap-2"
+              >
+                {(
+                  [
+                    { id: "pago", label: alvoJaFechou ? "Pagamento recebido" : "Pagou na hora" },
+                    { id: "pendente", label: alvoJaFechou ? "Alterar prazo" : "Vai pagar depois" },
+                  ] as const
+                ).map(({ id, label }) => (
+                  <label
+                    key={id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      fecharModo === id
+                        ? "border-foreground/40 bg-accent"
+                        : "border-border hover:bg-accent/50",
+                    )}
+                  >
+                    <RadioGroupItem value={id} id={`fechar-modo-${id}`} />
+                    {label}
+                  </label>
+                ))}
+              </RadioGroup>
+
+              {fecharModo === "pago" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fechar-data">Data do pagamento (ativação)</Label>
+                    <Input
+                      id="fechar-data"
+                      type="date"
+                      value={fecharData}
+                      onChange={(e) => setFecharData(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fechar-valor">Valor de ativação (R$)</Label>
+                    <Input
+                      id="fechar-valor"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={fecharValor}
+                      onChange={(e) => setFecharValor(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="fechar-prazo">Prazo de pagamento</Label>
+                  <Input
+                    id="fechar-prazo"
+                    type="date"
+                    value={fecharPrazo}
+                    onChange={(e) => setFecharPrazo(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Responsável</Label>
                 <Select value={fecharResponsavel} onValueChange={setFecharResponsavel}>
@@ -971,7 +1076,11 @@ export function ReunioesView() {
                 disabled={fechouMut.isPending}
                 className="bg-emerald-600 text-white hover:bg-emerald-700"
               >
-                Confirmar fechamento
+                {fecharModo === "pendente"
+                  ? "Salvar prazo"
+                  : alvoJaFechou
+                    ? "Confirmar pagamento"
+                    : "Confirmar fechamento"}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -58,7 +58,13 @@ export function rotuloRelativo(data: string | null): string {
 
 // --- Status ----------------------------------------------------------------
 
-export type StatusReuniao = "atrasada" | "hoje" | "agendada" | "sem-data";
+export type StatusReuniao =
+  | "pagamento-atrasado"
+  | "aguardando-pagamento"
+  | "aguardando-conclusao"
+  | "hoje"
+  | "agendada"
+  | "sem-data";
 
 export interface StatusInfo {
   id: StatusReuniao;
@@ -70,19 +76,33 @@ export interface StatusInfo {
 }
 
 const STATUS: Record<StatusReuniao, StatusInfo> = {
-  atrasada: {
-    id: "atrasada",
-    label: "Atrasada",
+  "pagamento-atrasado": {
+    id: "pagamento-atrasado",
+    label: "Pagamento atrasado",
     badge:
       "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400",
     ponto: "bg-red-500",
+  },
+  "aguardando-pagamento": {
+    id: "aguardando-pagamento",
+    label: "Fechou · aguardando pagamento",
+    badge:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400",
+    ponto: "bg-emerald-500",
+  },
+  "aguardando-conclusao": {
+    id: "aguardando-conclusao",
+    label: "Aguardando conclusão",
+    badge:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-400",
+    ponto: "bg-amber-500",
   },
   hoje: {
     id: "hoje",
     label: "Hoje",
     badge:
-      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-400",
-    ponto: "bg-amber-500",
+      "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-400",
+    ponto: "bg-violet-500",
   },
   agendada: {
     id: "agendada",
@@ -100,15 +120,27 @@ const STATUS: Record<StatusReuniao, StatusInfo> = {
 };
 
 /**
- * Status derivado da data da reunião.
+ * Status do polo na aba Reuniões.
+ *
+ * Com `prazo_pagamento` preenchido o polo já fechou e só espera o pagamento —
+ * é o único caso que conta como atrasado (prazo vencido). Reunião que passou
+ * sem desfecho marcado fica "Aguardando conclusão".
  *
  * Não existe "Concluída" aqui: concluir move o polo para Ativação ou Inativos,
  * então ele deixa de aparecer nesta aba.
  */
-export function statusReuniao(dataReuniao: string | null, hoje = hojeIso()): StatusInfo {
-  if (!dataReuniao) return STATUS["sem-data"];
-  if (dataReuniao < hoje) return STATUS.atrasada;
-  if (dataReuniao === hoje) return STATUS.hoje;
+export function statusReuniao(
+  polo: { data_reuniao: string | null; prazo_pagamento: string | null },
+  hoje = hojeIso(),
+): StatusInfo {
+  if (polo.prazo_pagamento) {
+    return polo.prazo_pagamento < hoje
+      ? STATUS["pagamento-atrasado"]
+      : STATUS["aguardando-pagamento"];
+  }
+  if (!polo.data_reuniao) return STATUS["sem-data"];
+  if (polo.data_reuniao < hoje) return STATUS["aguardando-conclusao"];
+  if (polo.data_reuniao === hoje) return STATUS.hoje;
   return STATUS.agendada;
 }
 
